@@ -22,7 +22,7 @@ This is evidence from one fictional fixture, not measured compatibility with eve
 
 ## Version 0.1.5 screenshot run
 
-The actual Chrome extension was switched to English and used once with the real TypeSafe API on `examples/demo-form.html`. Six proposals were produced for seven controls. After applying, Chrome showed the specified name, email, company, Vegetarian meal, exact `004207` code, and unchecked newsletter. The unknown telephone stayed blank. The published images are native Chrome captures, with API key settings closed. No second paid analysis was used.
+The actual Chrome extension was switched to English and used once with the real TypeSafe API on `examples/demo-form.html`. Six proposals were produced for seven controls. After applying, Chrome showed the specified name, email, company, Vegetarian meal, exact `004207` code, and unchecked newsletter. The unknown telephone stayed blank. The published images are native Chrome captures, with API key settings closed. The filled-form image is losslessly cropped to remove browser chrome and unused margins; all seven controls remain visible and the retained pixels are unchanged. No second paid analysis was used.
 
 The popup's completion summary was not observed: its accessibility/pixel state remained busy during capture, and the popup was closed to inspect the page. This run establishes the final visible field values, not the completion-summary behavior. Automated popup tests cover those messages.
 
