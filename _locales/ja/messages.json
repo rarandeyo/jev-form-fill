@@ -1,0 +1,8 @@
+{
+  "extensionName": {
+    "message": "Jev Form Fill"
+  },
+  "extensionDescription": {
+    "message": "クリップボードの文章から、根拠のある値だけをフォームに入力します。候補の確認、読戻し、Undoに対応。"
+  }
+}

@@ -5,7 +5,9 @@ from pathlib import Path
 import zipfile
 
 FILES = ('manifest.json', 'popup.html', 'popup.css', 'popup.js', 'core.js',
-         'page.js', 'client.js', 'README.md', 'PRIVACY.md', 'LICENSE')
+         'page.js', 'client.js', 'i18n.js', '_locales/en/messages.json',
+         '_locales/ja/messages.json', 'README.md', 'README.ja.md', 'PRIVACY.md', 'PRIVACY.ja.md', 'LICENSE',
+         'docs/images/review-proposals.jpg', 'docs/images/filled-form.jpg')
 
 def build(root, output):
     root, output = Path(root), Path(output)

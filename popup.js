@@ -1,10 +1,21 @@
 import {evaluate} from './core.js';
 import {pageCommand} from './page.js';
 import {callJev} from './client.js';
+import {resolveLanguage,translator,localizeMessage} from './i18n.js';
 const $=id=>document.getElementById(id);
 let tabId,plan=null,rows=[],controller=null,busy=false,sourceVersion=0;
-const status=(text,error=false)=>{$('status').textContent=text;$('status').classList.toggle('error',error);};
-function buttons(value) {busy=value;for(const id of ['analyze','apply','undo','clipboard','save-key','forget-key','clear','api-key','remember']) $(id).disabled=value; $('source').readOnly=value;document.querySelectorAll('#rows input').forEach(x=>{x.disabled=value;});$('cancel').hidden=!value; $('apply').disabled=value || !plan || !rows.some(x=>x.status==='ready');}
+const browserLanguage=chrome.i18n?.getUILanguage?.()||navigator.language||'en';
+let language=resolveLanguage(undefined,browserLanguage),t=translator(language);
+const status=(text,error=false)=>{$('status').textContent=localizeMessage(text,language);$('status').classList.toggle('error',error);};
+function buttons(value) {busy=value;for(const id of ['analyze','apply','undo','clipboard','save-key','forget-key','clear','api-key','remember','language']) $(id).disabled=value; $('source').readOnly=value;document.querySelectorAll('#rows input').forEach(x=>{x.disabled=value;});$('cancel').hidden=!value; $('apply').disabled=value || !plan || !rows.some(x=>x.status==='ready');}
+function localizeUI() {
+  document.documentElement.lang=language;
+  document.querySelectorAll('[data-i18n]').forEach(element=>{element.textContent=t(element.dataset.i18n);});
+  document.querySelectorAll('[data-i18n-placeholder]').forEach(element=>{element.placeholder=t(element.dataset.i18nPlaceholder);});
+  document.querySelectorAll('[data-i18n-aria]').forEach(element=>{element.setAttribute('aria-label',t(element.dataset.i18nAria));});
+  $('target').textContent=localizeMessage($('target').textContent,language);
+  $('status').textContent=localizeMessage($('status').textContent,language);
+}
 function invalidate(){sourceVersion++;plan=null;rows=[];$('apply').disabled=true;$('results').hidden=true;$('diagnostics').value='';}
 async function command(request) {
   if (!tabId) throw new Error('対象ページを開いてから、拡張機能を開き直してください。');
@@ -18,21 +29,28 @@ async function run(task) {
   try{await task();}catch(error){status(error.name==='AbortError'?'中止しました。':error.name==='TimeoutError'?'APIの応答が時間内に返りませんでした。':error.message || '処理に失敗しました。',true);}
   finally{controller=null;buttons(false);}
 }
-function render() {
+function render(selectedIds=null) {
   const parent=$('rows');parent.replaceChildren();
   for(const row of rows) {
     const element=document.createElement(row.status==='ready'?'label':'div');element.className=`row ${['ready','filled','unchanged'].includes(row.status)?'':'skip'}`;
     const name=document.createElement('div');name.className='name';
-    if(row.status==='ready') {const check=document.createElement('input');check.type='checkbox';check.checked=true;check.dataset.fieldId=row.id;name.append(check);}
+    if(row.status==='ready') {const check=document.createElement('input');check.type='checkbox';check.checked=selectedIds===null||selectedIds.has(row.id);check.dataset.fieldId=row.id;name.append(check);}
     name.append(document.createTextNode(row.field.label));element.append(name);
     const context=document.createElement('div');context.className='context';context.textContent=row.field.context;element.append(context);
-    const value=document.createElement('div');value.className='value';value.textContent=['ready','filled','unchanged'].includes(row.status)?(row.display || '空欄にする'):'変更しない';element.append(value);
-    const reason=document.createElement('small');reason.textContent=row.reason;element.append(reason);parent.append(element);
+    const value=document.createElement('div');value.className='value';value.textContent=['ready','filled','unchanged'].includes(row.status)?(row.field.kind==='checkbox'?t(row.value?'on':'off'):row.value===''?t('blank'):row.display):t('unchanged');element.append(value);
+    const reason=document.createElement('small');reason.textContent=localizeMessage(row.reason,language);element.append(reason);parent.append(element);
   }
   const ready=rows.filter(x=>x.status==='ready').length;
-  $('count').textContent=`${ready}件の候補 / ${rows.length}項目`;$('results').hidden=false;
-  $('diagnostics').value=JSON.stringify({version:chrome.runtime?.getManifest?.().version||'0.1.4',source:$('source').value,rows},null,2);
+  $('count').textContent=t('count',{ready,total:rows.length});$('results').hidden=false;
+  $('diagnostics').value=JSON.stringify({version:chrome.runtime?.getManifest?.().version||'0.1.5',language,source:$('source').value,rows},null,2);
 }
+$('language').addEventListener('change',()=>run(async()=>{
+  const selectedIds=new Set([...document.querySelectorAll('#rows input:checked')].map(x=>x.dataset.fieldId));
+  const preference=$('language').value;
+  await chrome.storage.local.set({uiLanguage:preference});
+  language=resolveLanguage(preference,browserLanguage);t=translator(language);localizeUI();
+  if(rows.length)render(selectedIds);
+}));
 $('source').addEventListener('input',invalidate);
 $('clear').addEventListener('click',()=>{$('source').value='';invalidate();status('文章を消しました。');});
 $('clipboard').addEventListener('click',async()=>{
@@ -62,7 +80,7 @@ $('analyze').addEventListener('click',()=>run(async()=>{
   if (version!==sourceVersion || source!==$('source').value) throw new Error('文章が変わりました。もう一度候補を作ってください。');
   rows=analyzed;
   plan=scan;render();
-  status(`候補を作成しました。確認後に入力してください。${scan.unsupported?' 独自の選択UIやiframeは対象外になる場合があります。':''}`);
+  status(t(scan.unsupported?'proposalsReadyUnsupported':'proposalsReady'));
 }));
 $('apply').addEventListener('click',()=>run(async()=>{
   if(!plan) throw new Error('もう一度候補を作ってください。');
@@ -78,12 +96,15 @@ $('undo').addEventListener('click',()=>run(async()=>{
   invalidate();status(`${result.filter(x=>x.status==='restored').length}件を元に戻しました。${result.filter(x=>x.status==='skip').length}件は後から編集されたため残しました。${result.filter(x=>x.status==='failed').length}件は戻せませんでした。`);
 }));
 async function initialize() {
+  localizeUI();
   try {
     await chrome.storage.local.setAccessLevel({accessLevel:'TRUSTED_CONTEXTS'});
-    const stored=await chrome.storage.local.get('apiKey');$('api-key').value=stored.apiKey||'';$('remember').checked=Boolean(stored.apiKey);$('settings').open=!stored.apiKey;
+    const stored=await chrome.storage.local.get(['apiKey','uiLanguage']);$('api-key').value=stored.apiKey||'';$('remember').checked=Boolean(stored.apiKey);$('settings').open=!stored.apiKey;
+    const preference=['en','ja'].includes(stored.uiLanguage)?stored.uiLanguage:'auto';
+    $('language').value=preference;language=resolveLanguage(preference,browserLanguage);t=translator(language);localizeUI();
     const [tab]=await chrome.tabs.query({active:true,currentWindow:true});
     if(!tab || !/^https?:\/\//.test(tab.url||'')) throw new Error('通常のWebページで開いてください。Chrome内部ページには入力できません。');
-    tabId=tab.id;const url=new URL(tab.url);$('target').textContent=`入力先 · ${url.hostname}${url.pathname}`;
-  }catch(error){status(error.message,true);$('target').textContent='入力先を取得できませんでした。';}
+    tabId=tab.id;const url=new URL(tab.url);$('target').textContent=t('target',{host:url.hostname,path:url.pathname});
+  }catch(error){status(error.message,true);$('target').textContent=t('noTarget');}
 }
 initialize();

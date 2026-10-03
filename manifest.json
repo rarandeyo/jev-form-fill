@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Jev Form Fill",
-  "version": "0.1.4",
-  "description": "クリップボードの文章から、根拠のある値だけをフォームに入力します。",
+  "name": "__MSG_extensionName__",
+  "version": "0.1.5",
+  "description": "__MSG_extensionDescription__",
   "minimum_chrome_version": "116",
   "permissions": [
     "activeTab",
@@ -14,10 +14,11 @@
     "https://api.typesafe.ai/*"
   ],
   "action": {
-    "default_title": "Jev Form Fill",
+    "default_title": "__MSG_extensionName__",
     "default_popup": "popup.html"
   },
   "content_security_policy": {
     "extension_pages": "script-src 'self'; object-src 'none'; connect-src https://api.typesafe.ai"
-  }
+  },
+  "default_locale": "en"
 }

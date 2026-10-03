@@ -1,13 +1,15 @@
-# データの扱い
+# Privacy notes
 
-Jev Form Fillは、ユーザーが「TypeSafeへ送って候補を作る」を押したときに、元の文章とフォームの項目名・文脈・型・選択肢をTypeSafeへ送ります。送信先は `https://api.typesafe.ai/v1/systemone`、モデルは `jev-latest` です。APIキーは認証ヘッダーとしてTypeSafeに送信します。API利用料や、TypeSafe側のデータ処理については同サービスの規約・方針を確認してください。
+English · [日本語](PRIVACY.ja.md)
 
-既存の入力値、Cookie、対象ページのURL、ページ本文全体は解析要求に含めません。項目名や見出しに個人情報があれば、それはフォーム情報として送られます。文章中の秘密情報を自動除去する機能はありません。
+Jev Form Fill sends your source text and form field names, context, types, and options to TypeSafe when you click **Create proposals with TypeSafe**. The endpoint is `https://api.typesafe.ai/v1/systemone` and the model is `jev-latest`. Your API key is sent to TypeSafe in the authorization header. API charges may apply; consult TypeSafe’s terms and data policies for its processing.
 
-APIキーは通常、開いているポップアップ内だけに保持します。保存を選んで「設定を反映」を押した場合は `chrome.storage.local` に保存します。Chrome同期は使わず、content scriptからのアクセスも許可しません。OSの資格情報保管庫による暗号化ではありません。「保存したキーを削除」で削除できます。
+Existing field values, cookies, the destination page URL, and the full page body are not included in analysis requests. Personal information appearing in field names or headings is part of the metadata sent. Source text is not automatically scrubbed of secrets.
 
-クリップボードは「クリップボードから読む」を押したときだけ読みます。文章や診断を永続保存しません。診断欄には元の文章と判定結果が含まれるため、公開Issueへ貼る前に内容を確認してください。入力候補とUndoの元値はページの拡張専用の隔離環境に保持し、ページの再読み込み等で失われます。
+Your API key normally stays in the open popup. Choosing **Save the key in this browser** and applying settings saves it in `chrome.storage.local`. Chrome sync is not used, and content-script access is disabled. This storage is not an OS credential vault. **Delete saved key** removes it. The UI language preference is also stored locally; selecting a language never saves the API key.
 
-設定した値は対象サイトから見えます。サイトのinput/change処理が、フォーム送信前に値をサーバーへ送る場合があります。拡張はフォームを自動送信しません。
+The clipboard is read only when you click **Read clipboard**. Source text and diagnostics are not persisted. Diagnostics contain source text and decisions; review them before sharing in a public issue. Plans and undo values are kept in the extension’s isolated world on the page and disappear on page reload or navigation.
 
-拡張にはアクセス解析や独自サーバーへの送信はありません。GitHubはコードの配布先で、拡張の解析要求を受信しません。ローカル試験フォームは送信された架空データを、そのPCの `.local/form-fill-lab/receipts/` に保存します。このフォルダはGit管理対象外です。
+Filled values are visible to the destination website. Its input/change handlers may send them to its server before you submit. The extension never submits forms automatically.
+
+There is no analytics or application backend. GitHub distributes the code and does not receive extension analysis requests. The local test server records submitted fictional data under `.local/form-fill-lab/receipts/` on your computer; that directory is excluded from Git.

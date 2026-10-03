@@ -1,27 +1,35 @@
-# 検証結果と限界
+# Validation and limits
 
-2026-10-04時点。公開準備版0.1.4は、0.1.3と同じフォーム解析・適用コードを使い、名称・表示・公開用文書・配布手順・試験サーバーの保存先を整えた版です。
+English · [日本語](validation.ja.md)
 
-## Chrome上の実試験
+As of 2026-10-04. Version 0.1.5 adds English/Japanese UI and public documentation. The form analysis and application code is unchanged from 0.1.3.
 
-0.1.3をChromeに読み込み、TypeSafeの実APIを使って架空のMinamo Research Dayフォームへ入力し、ローカルサーバーで送信された最終値を採点しました。
+## Real Chrome/API trial
 
-| 試験群 | 一致 | 内容 |
+Version 0.1.3 was loaded into Chrome and used with the real TypeSafe API on a fictional Minamo Research Day form. Submitted values were graded by the local server.
+
+| Group | Matched | Scope |
 | --- | ---: | --- |
-| 通常入力 | 28/28 | 氏名、住所、連絡先、権限、明示空欄・オフなど |
-| 保護対象 | 18/18 | 情報がない欄や操作対象外の欄を保持 |
-| 負荷試験 | 1/8 | ページ内の偽指示を無視して正しいNotification emailを入力 |
+| Normal inputs | 28/28 | Names, address, contact details, permissions, explicit blanks/OFF |
+| Protected fields | 18/18 | Missing information and excluded controls kept intact |
+| Stress cases | 1/8 | Correct notification email despite a misleading page instruction |
 
-再解析・適用後のポップアップをユーザーが確認し、動的に現れたDietary detailsは入力して読戻し成功、Managed codeは「ページが値を受け付けませんでした」、Delayed aliasは「入力後にページが値を変更しました」と表示されました。この再解析後の全項目採点は未取得です。再解析時にはCityが見送られており、モデルの判定に揺れがあることも確認しています。既存の値を保持するため、見送ったことと最終値が誤っていることは同じではありません。
+After another analysis/application, the user confirmed successful readback for dynamically added Dietary details, immediate rejection for Managed code, and a later page change for Delayed alias in the popup. The full second submission was not graded. City was skipped in that analysis, illustrating variation in model judgments. Skipped fields preserve their current values; skipping does not necessarily mean the final value is incorrect.
 
-負荷試験の不一致には、サイトが意図的に値を戻す欄、独自UI、maxlengthより長い値、iframe、shadow DOMが含まれます。これらを入力できたとは主張しません。Long titleは候補選択後の全文確認が0.85で見送られました。
+Failed stress cases include controls that deliberately restore their values, custom UI, a value exceeding maxlength, iframe, and shadow DOM. These are not claimed as successful fills. Long title was skipped after a whole-source check of 0.85.
 
-この結果は一つの架空フォームでの実測です。GitHubの実作成画面、すべてのWebサイト、多様な文章、0.1.4のChrome上の読み込みは未検証です。Jevのしきい値は正答率や校正済み信頼度ではありません。ページによる値の変更は適用完了までの読戻しで確認し、以後は継続監視しません。
+This is evidence from one fictional fixture, not measured compatibility with every website, source text, or the live GitHub App creation page. Thresholds are application policy, not calibrated probabilities or accuracy figures. Readback checks end after application; later page changes are not monitored.
 
-## ローカルの自動検証
+## Version 0.1.5 screenshot run
 
-Nodeのテストでは元文字列の切り出し、型・確率分布の不正、情報欠落、文脈違い、明示空欄・オフ、DOM順、値の書き戻し、Undo、分析中の編集、APIエラー、ポップアップからフォームまでの流れを確認します。モデル回答・Chrome APIを模擬し、DOMはjsdomです。
+The actual Chrome extension was switched to English and used once with the real TypeSafe API on `examples/demo-form.html`. Six proposals were produced for seven controls. After applying, Chrome showed the specified name, email, company, Vegetarian meal, exact `004207` code, and unchecked newsletter. The unknown telephone stayed blank. The published images are native Chrome captures, with API key settings closed. No second paid analysis was used.
 
-試験サーバーの受信・保存・採点と、配布ZIPの内容・上書き防止も検証します。CIはこの自動検証を実行します。実APIの精度、Chromeでの表示・互換性、Web Store審査の証明ではありません。
+The popup's completion summary was not observed: its accessibility/pixel state remained busy during capture, and the popup was closed to inspect the page. This run establishes the final visible field values, not the completion-summary behavior. Automated popup tests cover those messages.
 
-診断原文や受信履歴はリポジトリに含めません。公開例と試験フォームは架空データです。
+## Automated checks
+
+Node tests cover exact source slicing, malformed types/probability distributions, missing data, wrong context, explicit blanks/OFF, page order, writeback, Undo, edits during analysis, API failures, and the popup-to-form flow. Model answers and Chrome APIs are mocked; the DOM uses jsdom. Localization tests cover browser defaults, manual overrides, English errors/results, and language changes that preserve source text, unchecked proposals, and key preferences.
+
+Python tests check distribution contents, both locales, bilingual document links, byte-for-byte source identity, ASCII process locales, and archive overwrite protection. Lab tests cover receipt storage, grading, and HTTP boundaries. CI runs these checks without TypeSafe credentials. They do not prove live model accuracy, Chrome compatibility, or Chrome Web Store approval.
+
+Diagnostic source text and received submission histories are excluded from the repository. All public examples and test forms use fictional data.
