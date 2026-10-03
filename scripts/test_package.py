@@ -25,10 +25,11 @@ class PackageTests(unittest.TestCase):
             archive = Path(tmp) / 'extension.zip'
             package.build(ROOT, archive)
             with zipfile.ZipFile(archive) as z:
-                readme = z.read('jev-form-fill/README.md').decode('utf-8')
-                for link in re.findall(r'\[[^\]]+\]\(([^)]+)\)', readme):
-                    if not link.startswith(('https://', 'http://', '#')):
-                        self.assertIn('jev-form-fill/' + link, z.namelist())
+                for name in ('README.md', 'README.ja.md', 'PRIVACY.md', 'PRIVACY.ja.md'):
+                    text = z.read('jev-form-fill/' + name).decode('utf-8')
+                    for link in re.findall(r'\[[^\]]+\]\(([^)]+)\)', text):
+                        if not link.startswith(('https://', 'http://', '#')):
+                            self.assertIn('jev-form-fill/' + link, z.namelist(), name)
 
     def test_runtime_files_are_exact_and_working_data_is_excluded(self):
         with tempfile.TemporaryDirectory(prefix='jev-package-') as tmp:
@@ -39,7 +40,13 @@ class PackageTests(unittest.TestCase):
                 self.assertEqual(set(z.namelist()), {'jev-form-fill/' + name for name in package.FILES})
                 for name in package.FILES:
                     self.assertEqual(z.read('jev-form-fill/' + name), (ROOT / name).read_bytes())
-                self.assertEqual(json.loads(z.read('jev-form-fill/manifest.json'))['version'], '0.1.4')
+                self.assertEqual(json.loads(z.read('jev-form-fill/manifest.json'))['version'], '0.1.5')
+                manifest = json.loads(z.read('jev-form-fill/manifest.json'))
+                self.assertEqual(manifest['default_locale'], 'en')
+                for locale in ('en', 'ja'):
+                    messages = json.loads(z.read('jev-form-fill/_locales/' + locale + '/messages.json'))
+                    for reference in (manifest['name'], manifest['description'], manifest['action']['default_title']):
+                        self.assertTrue(messages[reference[6:-2]]['message'])
 
     def test_existing_archive_is_preserved(self):
         with tempfile.TemporaryDirectory(prefix='jev-package-') as tmp:

@@ -1,92 +1,110 @@
 # Jev Form Fill
 
-Clipboard text → reviewed form values, powered by TypeSafe Jev.
+**Copy notes. Review proposals. Fill the right fields.**
 
-クリップボードの文章から、現在のページのフォームに入力候補を作るChrome拡張です。項目名・見出し・選択肢を元の文章に対応付け、候補を確認してからDOM順に入力します。文章に書かれていない値は見送ります。明示された空欄やオフにも対応し、直前の入力を戻せます。フォームは自動送信しません。
+[English](README.md) · [日本語](README.ja.md)
+[![Checks](https://github.com/takasek/jev-form-fill/actions/workflows/ci.yml/badge.svg)](https://github.com/takasek/jev-form-fill/actions/workflows/ci.yml) [![MIT License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-**試用版 v0.1.4。TypeSafeのAPIキーが必要です。候補の作成時に文章とフォーム情報をTypeSafeへ送信し、API利用料が発生する場合があります。** [データの扱い](PRIVACY.md)を確認してください。
+A Chrome extension that matches your clipboard text to form fields with **TypeSafe Jev**. Review the proposed values, choose which fields to change, and fill them in page order. Fields without a supported value stay unchanged. Explicit blanks, checkboxes, radio buttons, and selects are supported. Undo restores the last fill. You submit the form yourself.
 
-## インストール
+**Preview v0.1.5 · Chrome 116+ · Bring your TypeSafe API key.** Creating proposals sends your source text and field metadata to TypeSafe; API charges may apply. Read the [privacy notes](PRIVACY.md).
 
-Chrome 116以上が対象です。ビルドやNode.jsのインストールは不要です。GitHubから配布するソースをローカルで読み込む方式です。
+## See it in action
 
-1. リポジトリをダウンロードして展開します。配布用ZIPを使う場合は、ZIP内の `jev-form-fill` フォルダを展開します。
-2. Chromeで `chrome://extensions` を開き、右上の「デベロッパーモード」をオンにします。
-3. 「パッケージ化されていない拡張機能を読み込む」を押し、`manifest.json` があるフォルダを選びます。
-4. ツールバーの拡張機能メニューから「Jev Form Fill」を開きます。必要なら固定します。
+![Jev Form Fill reviewing registration form proposals in Chrome](docs/images/review-proposals.jpg)
 
-更新時は読み込み元フォルダの内容を更新し、`chrome://extensions` で拡張を再読み込みしてください。
+**1. Copy** notes or settings. **2. Review** the proposed field values. **3. Fill** only the fields you choose.
 
-## 使い方
+![The registration form after filling with Jev Form Fill](docs/images/filled-form.jpg)
 
-1. 設定値やメモをコピーし、入力先のページを開きます。
-2. 拡張を開き、「クリップボードから読む」を押します。文章欄への手動貼り付けもできます。
-3. 「APIキーの設定」にTypeSafe APIキーを入力します。
-4. 「TypeSafeへ送って候補を作る」を押します。処理中はポップアップを開いたままにしてください。
-5. 候補を確認し、変更したくない項目のチェックを外して「選んだ項目に入力」を押します。既存の値も、選んで適用すれば書き換わります。
-6. 適用結果とページ側の値を確認し、フォームの送信はご自身で行います。「直前の入力を戻す」で最後の書き換えを取り消せます。
+These screenshots use the actual Chrome extension and a fictional registration form. The source text is ordinary English; values are copied exactly rather than rewritten. The telephone field has no supplied value and stays untouched, the reference code keeps its leading zeros, and the newsletter is explicitly switched off.
 
-適用後の失敗は**拡張のポップアップ内**に件数と理由を表示します。フォーム上に目印は付けません。「ページが値を受け付けませんでした」「入力後にページが値を変更しました」は入力失敗です。ポップアップを閉じると表示は消えます。適用後の「0件の候補」は、未適用の候補が残っていないという意味です。
+Example source:
 
-入力に応じて新しい欄が現れた場合は、もう一度候補を作ってください。分析後に手入力した値や、意味・選択肢が変わった項目は適用を見送ります。Undoでも後から手で編集した値は残します。ページ移動・再読み込み・拡張の再読み込みで候補とUndo情報は失われます。
+```text
+Full name: `Mika Arai`
+Work email: `mika.arai@example.test`
+Company: `Minamo Research Lab`
+Meal preference: Vegetarian
+Reference code: `004207`
+Do not subscribe to the newsletter.
+The telephone number is unknown; leave it unchanged.
+```
 
-## 対応範囲
+## Install
 
-| 対応 | トップレベル文書のinput（text・email・tel・url・search・number・date・time・datetime-local・checkbox・radio）、textarea、単一選択select |
+No build step or Node.js is required to use the extension.
+
+1. Download this repository using **Code → Download ZIP**, or clone it.
+2. Extract it, then open `chrome://extensions`.
+3. Turn on **Developer mode** and choose **Load unpacked**.
+4. Select the folder containing `manifest.json`.
+5. Open **Jev Form Fill** from Chrome’s extensions menu. Pin it if you use it often.
+
+A packaged extension ZIP, when available, contains a `jev-form-fill` folder; load that folder. To update, replace the contents of your loaded folder and reload the extension in `chrome://extensions`.
+
+## Use
+
+1. Copy your notes and open the target page.
+2. Open Jev Form Fill and click **Read clipboard**, or paste into **Source text**.
+3. Enter your key under **API key settings**. The key stays in this popup unless you explicitly choose to save it in this browser.
+4. Click **Create proposals with TypeSafe**. Keep the popup open while it works.
+5. Review the values, uncheck fields you want to keep, and click **Fill selected fields**. Selected proposals can replace existing values.
+6. Check the result in the popup and on the page, then submit the form yourself. **Undo last fill** restores the most recent write while preserving later manual edits.
+
+The UI follows your browser language (English or Japanese). Use the **Language** selector to override it. Changing UI language does not translate your source text, field labels, or values.
+
+Failures appear **inside the popup**, with counts and a reason for each field. “The page did not accept the value” and “The page changed the value after filling” indicate failures. Closing the popup loses that display; no markers are added to the form. After applying, “0 proposals” means there are no unapplied proposals remaining.
+
+When new fields appear after a selection, create proposals again. Fields edited manually or changed since analysis are skipped. Page navigation, reload, or extension reload clears plans and undo data.
+
+## What it handles
+
+| Supported | Top-level input fields: text, email, tel, url, search, number, date, time, datetime-local, checkbox, radio; textarea; single-select |
 | --- | --- |
-| 対象外 | password、file、hidden、month・week・range・color、disabled・readonly、送信ボタン、複数選択select、iframe、shadow DOM、contenteditable、ネイティブ入力要素のない独自UI |
-| 元文章の上限 | 12,000文字・120行、1回の分析は160項目まで |
-| 値の扱い | 元文章の引用値または一行の範囲をそのまま切り出す。複数行の合成、言い換え、日付計算はしない |
+| Left alone | Password, file, hidden, month/week/range/color, disabled/readonly, submit buttons, multi-select, iframe, shadow DOM, contenteditable, widgets without native form controls |
+| Limits | 12,000 source characters, 120 source lines, 160 fields per analysis; unquoted range extraction up to 240 tokens per line |
+| Values | Exact quoted values or ranges from one source line; no paraphrasing, multi-line synthesis, or date calculations |
 
-- radioは同名・同一formのグループ全体を扱える場合だけ操作します。一部の選択肢がdisabledなどの場合は見送ります。
-- ネイティブ `details` は読み取り時だけ開いて元に戻します。それ以外の折りたたみは、ご自身で開いてから分析してください。
-- credential・paymentらしい名前のテキスト欄も除外しますが、判定はヒューリスティックです。元文章の秘密情報を自動除去しません。
-- 値の範囲選択は一行240トークンまでです。多数の選択肢や長い文章はAPIの文脈上限に達する場合があります。
-- 設定後に読戻しを行い、全項目への適用後に650ms待って再確認します。それ以降の変更は継続監視しません。
-- Jevの判定には揺れがあります。同じ文章・フォームでも毎回同じ候補になる保証はありません。候補と入力後の値を確認してください。
+Native `details` are opened for scanning and then restored. Open other collapsed sections yourself. Radio groups are handled only when the entire same-name group in the same form can be operated on. Credential/payment-looking text fields are excluded heuristically; secrets in the source text are not automatically removed.
 
-## データと費用
+Readback checks run after writes and again 650ms after the entire fill. There is no ongoing monitor after that. Jev judgments can vary between runs, so always review the proposals and the final values. Model thresholds are application policy, not measured accuracy.
 
-解析先はTypeSafeの `https://api.typesafe.ai/v1/systemone`、モデルは `jev-latest` です。元の文章と対象項目の名前・見出し・型・選択肢を送ります。既存の入力値、Cookie、ページURL、ページ本文全体は解析要求に含めません。項目名・見出しに含まれる個人情報は送られます。アクセス解析はありません。
+## Privacy, permissions, and cost
 
-8項目ずつ分析し、1バッチあたり1〜4回のAPI要求を行います。HTTPエラーの自動再試行はしません。APIキーは通常、開いているポップアップ内だけに保持します。保存を明示した場合だけ `chrome.storage.local` に保存します。詳細は [PRIVACY.md](PRIVACY.md) を参照してください。
+Requests go directly to `https://api.typesafe.ai/v1/systemone`, using `jev-latest`. The source text, field names, headings, types, and options are sent. Existing field values, cookies, the page URL, and the full page body are not included in analysis requests. Names/headings themselves may contain personal information. There is no analytics or application backend.
 
-権限は `activeTab`、`scripting`、`storage`、`clipboardRead` とTypeSafe APIホストのみです。
+Fields are analyzed in batches of eight, with 1–4 API requests per batch. HTTP failures are not retried automatically. Saved API keys use `chrome.storage.local`, not Chrome sync or an OS credential vault. See [PRIVACY.md](PRIVACY.md) for details.
 
-## 試験と開発
+Permissions: `activeTab`, `scripting`, `storage`, `clipboardRead`, and the TypeSafe API host. Form input events may cause the destination site to transmit values before you submit.
 
-開発・試験・ZIP作成は、[ソースリポジトリ](https://github.com/takasek/jev-form-fill)をダウンロードまたはcloneし、そのルートで実行してください。配布用ZIPには開発・試験用のファイルを含めません。Node.js 22以上で実行できます。テストはモデル回答とChrome APIを模擬し、実APIやAPIキーは使いません。
+## Try the demo and run tests
+
+Development commands require the [source repository](https://github.com/takasek/jev-form-fill), not just the packaged extension ZIP. Run them at the repository root with Node.js 22+.
 
 ```sh
 npm ci --ignore-scripts
 npm test
-```
-
-架空のイベント登録フォームで、同名欄、空欄・オフ、先頭ゼロ、動的欄、偽指示、サイトによる値の書き戻しなどを試せます。
-
-```sh
 node lab/server.js --port 0
 ```
 
-表示されたURLをChromeで開きます。サーバーは127.0.0.1だけで待ち受け、送信結果をGit管理対象外の `.local/form-fill-lab/receipts/` に保存します。詳しくは [試験フォームの使い方](https://github.com/takasek/jev-form-fill/blob/main/lab/README.md) と [検証結果・限界](https://github.com/takasek/jev-form-fill/blob/main/docs/validation.md) を参照してください。
+Open the printed URL in Chrome. The lab binds only to `127.0.0.1` and saves fictional results under the Git-ignored `.local/form-fill-lab/receipts/`. See the [lab guide](https://github.com/takasek/jev-form-fill/blob/main/lab/README.md) and [validation notes](https://github.com/takasek/jev-form-fill/blob/main/docs/validation.md). A compact form used for the screenshots is in [examples/](https://github.com/takasek/jev-form-fill/tree/main/examples).
 
-GitHub Appの設定例も [examples/](https://github.com/takasek/jev-form-fill/tree/main/examples) にあります。実際のGitHub App作成画面での入力互換性は未検証です。
+In one real Chrome/API run of v0.1.3, normal inputs matched **28/28** and protected fields remained correct **18/18**. Stress tests matched **1/8**, with unsupported cases documented. A second analysis filled the dynamic dietary field and displayed both page-rejection failures; that second run was not fully graded. This is a fixture result, not a claim of compatibility with every website. The live GitHub App creation page is unverified.
 
-配布用ZIPはPython 3.9以上で作成できます。
+Tests use mocked model answers/Chrome APIs and jsdom; they do not call TypeSafe. Build the distribution ZIP with Python 3.9+:
 
 ```sh
 python3 -m unittest discover -s scripts -p 'test_*.py'
 npm run package
 ```
 
-ZIPには拡張の実行ファイルとREADME・プライバシー説明・ライセンスだけを入れます。既存のZIPは上書きしないため、再作成時は先に対象ファイルを移動してください。
+The ZIP includes runtime files, bilingual installation/privacy notes, screenshots, and the license. It excludes tests, server data, dependencies, and API keys. Existing ZIPs are never overwritten by the packaging script.
 
-## 仕組みと資料
+## How it works
 
-根拠の行と完全な引用値を候補として選び、全文に照らすNoul確認を経て入力可能にします。引用されていない値は始点・終点から元文字列を切り出します。空欄・オフは、情報欠落とは別の明示指示として確認します。しきい値はアプリの暫定方針で、正確さの実測値ではありません。
+Jev selects candidate source passages and exact quoted values. A whole-source Noul check must support a proposed value before it becomes fillable. Unquoted values use start/end token choices to slice the original text. Explicit blanks and OFF instructions are checked separately from missing information. Page writes use native setters and input/change events, then readback. All form submission stays under your control.
 
-- [TypeSafe API](https://docs.typesafe.ai/api)、[Choice](https://docs.typesafe.ai/primitives/choice)
-- [Chrome activeTab](https://developer.chrome.com/docs/extensions/develop/concepts/activeTab)、[scripting](https://developer.chrome.com/docs/extensions/reference/api/scripting)
-- [Chromeの拡張読み込み](https://developer.chrome.com/docs/extensions/get-started/tutorial/hello-world#load-unpacked)
+[TypeSafe API](https://docs.typesafe.ai/api) · [Chrome activeTab](https://developer.chrome.com/docs/extensions/develop/concepts/activeTab) · [Chrome scripting](https://developer.chrome.com/docs/extensions/reference/api/scripting)
 
-MIT License。TypeSafeの公式製品ではありません。
+MIT License. An independent project, not an official TypeSafe product.

@@ -1,35 +1,37 @@
 # Form Fill Lab
 
-Jev Form Fill を、GitHub以外のフォームで試すためのローカルページです。通常入力28項目、変更しない項目18項目、追加の負荷試験8項目を別々に採点します。全データは架空です。
+English · [日本語](README.ja.md)
 
-## 試し方
+A local page for trying Jev Form Fill on a form other than GitHub. It grades 28 normal inputs, 18 protected fields, and eight stress cases separately. All data is fictional.
 
-1. サーバーを起動し、表示されたURLをChromeで開きます。
-2. 「情報記載プロンプトをコピー」を押し、Jev Form Fillでクリップボードを読み、候補を確認して入力します。
-3. 動的に現れる Dietary details も試す場合は、もう一度候補を作って入力します。
-4. 「結果を送信して採点」を押します。遅れて値が戻る欄は、復元処理が終わってから採点します。
+## Try it
 
 ```sh
 node lab/server.js --port 0
 ```
 
-サーバーは127.0.0.1だけで待ち受けます。起動情報は `.local/form-fill-lab/server.json`、受信結果は `.local/form-fill-lab/receipts/` に保存します。同じサーバーの `/api/results` から結果を読めます。再試行は「初期状態からやり直す」で開始します。
+1. Open the printed URL in Chrome.
+2. Click **情報記載プロンプトをコピー** (copy source prompt), read the clipboard in Jev Form Fill, review proposals, and fill the form.
+3. Analyze again to fill Dietary details after it appears dynamically.
+4. Click **結果を送信して採点** (submit and grade). Wait for delayed resets before grading.
 
-## いじわるな点
+The adversarial fixture uses Japanese and English labels. The server listens only on `127.0.0.1`. Startup metadata is written to `.local/form-fill-lab/server.json`; receipts go to `.local/form-fill-lab/receipts/`. Results are available at `/api/results` on the same server. Use **初期状態からやり直す** (reset) to start again.
 
-- 参加者・請求先・配送先・別フォームに同じ氏名やEmailのラベルがあります。情報のない欄は初期値のままが正解です。
-- 明示的な空欄、オフ、否定形チェック、先頭ゼロ、日付、記号を含む文章、表示名と内部値が違う選択肢を含みます。
-- 折りたたまれた権限と、選択後に初めて現れる項目があります。
-- ページ内の偽の指示、即時・遅延の入力拒否、文字数制限を含みます。
-- 独自コンボボックス、iframe、shadow DOMは現版の対応限界を試す項目です。負荷試験の満点は、通常入力の合格条件ではありません。
+## What makes it difficult
 
-採点は送信時の状態を確認します。拡張の警告、入力した主体、Undoの動作は自動判定しません。通常のフォーム送信データに加え、disabled欄などの保持状態とinput/changeイベントを記録します。拡張で解析すると、元情報と項目情報がTypeSafeに送られます。実サービスへの登録はしません。
+- Repeated name/email labels across participant, billing, shipping, and recovery forms. Fields without supplied information should retain their initial values.
+- Explicit blanks/OFF, negative checkbox labels, leading zeros, dates, punctuation, and options whose displayed labels differ from internal values.
+- Collapsed permission sections and dynamically added fields.
+- Misleading page instructions, immediate/delayed input rejection, and length constraints.
+- Custom comboboxes, iframe, and shadow DOM test current limitations. A perfect stress score is not required for ordinary input success.
 
-## 検証
+Grading checks the submitted state, not who filled it, popup warnings, or Undo. Receipts include ordinary form data, excluded-field preservation, and input/change events. Analyzing the form sends source text and field metadata to TypeSafe. This fixture does not register with a real service.
+
+## Tests
 
 ```sh
 npm ci --ignore-scripts
 npm test
 ```
 
-採点、受信・保存・読戻し、別オリジン拒否、遅延復元前の偽合格を防ぐ回帰テストがあります。これはテストページの検証であり、Chrome上のJevによる入力成功の証明ではありません。
+Tests cover grading, receiving/storing/readback, foreign-origin rejection, and avoiding a false pass before delayed restoration. They verify the fixture, not actual Chrome/Jev filling success.

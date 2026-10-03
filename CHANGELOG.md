@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.5
+
+- English and Japanese UI, following the browser language with an explicit override.
+- Localized progress, errors, proposal reasons, and fill/undo results.
+- English README and privacy notes with Japanese editions.
+- Actual Chrome screenshots and a compact fictional registration demo.
+
+
 ## 0.1.4
 
 - 公開用の名称、インストール説明、データの扱い、検証結果を整理。
