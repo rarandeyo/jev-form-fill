@@ -4,17 +4,19 @@ import {readFile} from 'node:fs/promises';
 import {createRequire} from 'node:module';
 import {evaluate} from '../core.js';
 import {pageCommand} from '../page.js';
+import {resolveLanguage,translator,localizeMessage} from '../i18n.js';
 const require=createRequire(import.meta.url);
 const {JSDOM}=require(process.env.JEV_TEST_DEPS || 'jsdom');
 const html=await readFile(new URL('../popup.html',import.meta.url),'utf8');
 const script=(await readFile(new URL('../popup.js',import.meta.url),'utf8')).replace(/^import .*;\n/gm,'');
 const waitFor=async condition=>{for(let i=0;i<200;i++){if(condition()) return;await new Promise(r=>setTimeout(r,10));}throw new Error('UI did not settle');};
-function popup({evaluateFn=evaluate,call=async()=>({answers:{}}),pageFn=()=>({token:'t',fields:[{id:'f0',kind:'checkbox',label:'Active'}]})}={}) {
+function popup({evaluateFn=evaluate,call=async()=>({answers:{}}),pageFn=()=>({token:'t',fields:[{id:'f0',kind:'checkbox',label:'Active'}]}),uiLanguage='ja',initialSaved={}}={}) {
   const dom=new JSDOM(html,{url:'https://extension.test/popup.html',runScripts:'outside-only'});
   const win=dom.window;
-  let saved={};
+  let saved={...initialSaved};
   win.evaluate=evaluateFn;win.pageCommand=pageCommand;win.callJev=call;win.AbortController=AbortController;
-  win.chrome={storage:{local:{setAccessLevel:async()=>{},get:async()=>saved,set:async x=>{saved={...saved,...x};},remove:async()=>{saved={};}}},tabs:{query:async()=>[{id:1,url:'https://example.com/form'}]},scripting:{executeScript:async x=>[{result:await pageFn(x.args[0])}]}};
+  win.resolveLanguage=resolveLanguage;win.translator=translator;win.localizeMessage=localizeMessage;
+  win.chrome={i18n:{getUILanguage:()=>uiLanguage},storage:{local:{setAccessLevel:async()=>{},get:async()=>saved,set:async x=>{saved={...saved,...x};},remove:async key=>{delete saved[key];}}},tabs:{query:async()=>[{id:1,url:'https://example.com/form'}]},scripting:{executeScript:async x=>[{result:await pageFn(x.args[0])}]}};
   win.eval(script);
   return {dom,win,$:id=>win.document.getElementById(id),saved:()=>saved};
 }
@@ -31,6 +33,38 @@ test('editing source during an in-flight analysis cannot revive stale candidates
   assert.equal(ui.$('apply').disabled,true);
   assert.equal(ui.$('results').hidden,true);
   assert.match(ui.$('status').textContent,/文章が変わ/);
+});
+test('English popup localizes controls, API errors and apply failures',async()=>{
+  const ui=popup({uiLanguage:'en-US',evaluateFn:async()=>[{id:'f0',field:{label:'Active',kind:'checkbox'},status:'ready',value:false,display:'オフ',reason:'元の文章に一致する候補です。'}],pageFn:request=>request.op==='apply'?[{id:'f0',status:'failed',reason:'入力後にページが値を変更しました。'}]:{token:'t',fields:[{id:'f0',kind:'checkbox',label:'Active'}]}});
+  await waitFor(()=>ui.$('target').textContent.includes('example.com'));
+  assert.equal(ui.win.document.documentElement.lang,'en');
+  assert.equal(ui.$('target').textContent,'Target · example.com/form');
+  assert.equal(ui.$('analyze').textContent,'Create proposals with TypeSafe');
+  ui.$('source').value='Active: off';ui.$('analyze').click();await waitFor(()=>!ui.$('analyze').disabled);
+  assert.match(ui.$('status').textContent,/Set your TypeSafe API key/);
+  ui.$('api-key').value='test-key';ui.$('analyze').click();await waitFor(()=>!ui.$('analyze').disabled);
+  assert.equal(ui.$('count').textContent,'1 proposals / 1 fields');
+  assert.match(ui.$('rows').textContent,/Off/);
+  ui.$('apply').click();await waitFor(()=>!ui.$('analyze').disabled);
+  assert.match(ui.$('status').textContent,/Could not set: 1/);
+  assert.match(ui.$('rows').textContent,/The page changed the value after filling/);
+});
+
+test('switching language preserves source values, unchecked proposals and API key preferences',async()=>{
+  const candidates=[{id:'f0',field:{label:'氏名',kind:'text'},status:'ready',value:'新井 美香',display:'新井 美香',reason:'元の文章に一致する候補です。'},{id:'f1',field:{label:'Active',kind:'checkbox'},status:'ready',value:false,display:'オフ',reason:'元の文章に一致する候補です。'}];
+  const ui=popup({uiLanguage:'en',initialSaved:{apiKey:'saved-key'},evaluateFn:async()=>structuredClone(candidates),pageFn:()=>({token:'t',fields:[{id:'f0',kind:'text',label:'氏名'}],unsupported:true})});
+  await waitFor(()=>ui.$('target').textContent.includes('example.com'));
+  ui.$('source').value='氏名: 新井 美香';ui.$('analyze').click();await waitFor(()=>!ui.$('analyze').disabled);
+  ui.win.document.querySelector('[data-field-id=f0]').checked=false;
+  ui.$('language').value='ja';ui.$('language').dispatchEvent(new ui.win.Event('change'));await waitFor(()=>ui.$('analyze').textContent==='TypeSafeへ送って候補を作る');
+  assert.equal(ui.$('source').value,'氏名: 新井 美香');
+  assert.equal(ui.$('target').textContent,'入力先 · example.com/form');
+  assert.equal(ui.$('status').textContent,'候補を作成しました。確認後に入力してください。 独自の選択UIやiframeは対象外になる場合があります。');
+  assert.equal(ui.win.document.querySelector('[data-field-id=f0]').checked,false);
+  assert.match(ui.$('rows').textContent,/新井 美香/);
+  assert.equal(ui.saved().apiKey,'saved-key');assert.equal(ui.saved().uiLanguage,'ja');
+  ui.$('forget-key').click();await waitFor(()=>!ui.$('forget-key').disabled);
+  assert.deepEqual(ui.saved(),{uiLanguage:'ja'});
 });
 test('full popup-to-form flow uses real planner and page adapter, supports OFF and undo without submission', async()=>{
   const form=new JSDOM(`<form><h2>Webhook</h2><label><input id=active type=checkbox checked>Active</label><button type=submit>Submit</button></form>`,{url:'https://example.com/form',runScripts:'outside-only'});
