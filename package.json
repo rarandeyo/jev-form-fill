@@ -1,0 +1,17 @@
+{
+  "name": "jev-form-fill",
+  "version": "0.1.4",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test",
+    "package": "python3 scripts/package.py"
+  },
+  "devDependencies": {
+    "jsdom": "26.1.0"
+  },
+  "license": "MIT",
+  "engines": {
+    "node": ">=22"
+  }
+}

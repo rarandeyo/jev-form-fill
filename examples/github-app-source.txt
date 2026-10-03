@@ -1,0 +1,18 @@
+### GitHub App の設定値
+
+作成画面は Settings → Developer settings → GitHub Apps → New GitHub App。
+
+- **GitHub App name**: `example-maintenance-app`（全体で一意。取られていたら `example-maintenance-app-alt` など）
+- **Description**: `Creates maintenance pull requests for an example repository.`
+- **Homepage URL**: `https://example.com/maintenance-app`
+- **Identifying and authorizing users**: Callback URL は空。「Expire user authorization tokens」「Request user authorization (OAuth) during installation」「Enable Device Flow」はすべてオフ
+- **Post installation**: Setup URL は空
+- **Webhook**: Active のチェックを外す（URL・secret 不要）
+- **Repository permissions**:
+  - Contents: **Read and write**
+  - Pull requests: **Read and write**
+  - Metadata: Read-only（自動で付く）
+  - それ以外はすべて No access。`Workflows` も不要。sweep が書き換えるのは docs/maintenance.md だけ。
+- **Organization / Account permissions**: すべて No access
+- **Subscribe to events**: なし
+- **Where can this GitHub App be installed?**: Only on this account

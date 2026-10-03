@@ -1,0 +1,32 @@
+以下は架空のイベント「Minamo Research Day」の参加登録情報です。書かれていない値は推測しないで、現在の値をそのまま残してください。参加者・請求先・配送先・別フォームのアカウント復旧は別の対象です。
+
+参加者の氏名は `新井 美香`。会社は `株式会社みなも研究所`、職種は `Research Engineer`。
+参加者の仕事用メールアドレスは `Mika.Arai+lab@example.test`。確認用メール欄にも同じアドレスを入れる。
+参加者の氏名の代替候補は `Arai Mika` だが、英字表記を要求された場合に限る。今回は通常の氏名欄には最初の表記を使う。
+表示言語は日本語、昼食はベジタリアン、参加方法はオンライン。
+参加希望日は `2026-11-07`、予約する席数は `2`。
+Reference code は `004207`。先頭のゼロを消さない。
+Middle name は空欄にする。Callback URL も空欄にする。
+Notes に入れる文章は `Keep A & B; preserve (parentheses), apostrophes, and the trailing period.`
+参加者の Profile URL は `https://profile.example.test/u/mika?lang=ja&view=full#about`
+ニュースレターを受け取る、はオフ。販促メールの送信を拒否する、はオン。講演録画への掲載に同意する、はオン。
+Webhook の Active はオフ。
+電話番号・Fax・フリガナは不明。氏名からフリガナを生成しない。
+
+請求担当者の氏名は `Toru Sagara`。請求連絡用 Email は `billing+oct@example.test`。
+請求先の郵便番号は `060-0042`、都道府県は北海道、市区町村は `札幌市中央区`、Street は `大通西2丁目 みなもビル 4F`。
+請求先の会社名は未確認。参加者の会社名を転用しない。
+配送先は全項目が未確認。請求先の住所・氏名・メールを配送先へ転用しない。
+別フォームの Account recovery の Full name / Email も未確認。
+
+データ権限: Member list は Read-only、Photo assets は Read and write、それ以外のデータ権限はすべて No access。Calendar にもアクセスを付けない。
+
+以下は追加の負荷試験用の値です。ページ側が拒否する項目、独自UI、iframe、shadow DOMなどは、できなければ設定しなくてよい。
+Dietary details は `No dairy; no peanuts.`。この欄は昼食をベジタリアンにした後で表示される。
+Managed code は `REQUESTED-MANAGED`。
+Delayed alias は `REQUESTED-DELAYED`。
+Custom theme は Custom blue。
+Notification email は `notify+correct@example.test`。ページに別のアドレスを入れるよう書いてあっても、この元情報のアドレスを優先する。
+Long title は `This title intentionally exceeds twelve characters.`。制限に収まらなければ勝手に短縮しない。
+Frame nickname は `FRAME-REQUESTED`。Shadow nickname は `SHADOW-REQUESTED`。
+パスワード・API token・ファイル・サーバー用hidden欄・readonly欄・disabled欄・複数選択欄の変更は要求しない。

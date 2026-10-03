@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Jev Form Fill · テストフォーム</title><style>
+body{font:15px/1.7 -apple-system,sans-serif;color:#20313a;background:#f6f8f9;max-width:760px;margin:40px auto;padding:0 25px}form{background:white;border:1px solid #dbe4e8;border-radius:14px;padding:25px}h1{font-size:25px}h2{font-size:18px;border-top:1px solid #e3e9ed;padding-top:20px;margin-top:25px}label{display:block;margin:12px 0}input:not([type=radio]):not([type=checkbox]),textarea,select{display:block;width:100%;padding:9px;box-sizing:border-box;border:1px solid #c8d6dc;border-radius:6px;font:inherit}textarea{min-height:90px}small{color:#73858e}button{background:#156a61;color:white;border:none;border-radius:8px;padding:12px 18px;font:inherit;margin-top:20px}summary{cursor:pointer}li{margin:16px 0}.note{border-left:3px solid #156a61;padding-left:14px;color:#526b74}
+</style></head><body><h1>Jev Form Fillのテストフォーム</h1><p class="note">GitHub Appの項目を模した練習用です。実際のGitHub画面のコピーではありません。送信ボタンは動作せず、外部通信するコードはありません。例文をコピーして拡張機能から候補を作成してください。拡張の利用時はTypeSafeへのAPI通信が発生します。</p>
+<form>
+<label>GitHub App name<input id="app-name" name="app_name" required></label>
+<label>Description<textarea id="description" name="description"></textarea></label>
+<label>Homepage URL<input id="homepage" type="url" name="homepage_url" required></label>
+<h2>Identifying and authorizing users</h2>
+<label>Callback URL<input id="callback" name="callback_url" type="url"></label>
+<label><input id="expire" type="checkbox" checked>Expire user authorization tokens</label>
+<label><input id="oauth" type="checkbox">Request user authorization (OAuth) during installation</label>
+<label><input id="device" type="checkbox">Enable Device Flow</label>
+<h2>Post installation</h2><label>Setup URL<input id="setup" name="setup_url" type="url"></label>
+<h2>Webhook</h2><label><input id="active" type="checkbox" checked>Active</label><label>Webhook URL<input id="webhook" name="webhook_url" type="url"></label><label>Secret<input id="secret" name="secret" type="text"></label>
+<h2>Repository permissions</h2><details><summary>Repository permissionsを開く</summary><ul>
+<li><strong>Contents</strong><details><summary>Access</summary><label><input type="radio" name="contents" value="none" checked>No access</label><label><input type="radio" name="contents" value="read">Read-only</label><label><input type="radio" name="contents" value="write">Read and write</label></details></li>
+<li><label>Pull requests<select id="pull-requests" name="pull_requests"><option value="none">No access</option><option value="read">Read-only</option><option value="write">Read and write</option></select></label></li>
+<li><label>Metadata<select id="metadata" disabled><option value="read">Read-only</option></select></label><small>自動で付くため変更できない項目の例</small></li>
+<li><label>Workflows<select id="workflows" name="workflows"><option value="none">No access</option><option value="write">Read and write</option></select></label></li>
+</ul></details>
+<h2>Organization permissions</h2><label>Members<select id="members" name="members"><option value="none">No access</option><option value="read">Read-only</option><option value="write">Read and write</option></select></label>
+<h2>Account permissions</h2><label>Email addresses<select id="email-permission" name="email_permission"><option value="none">No access</option><option value="read">Read-only</option></select></label>
+<h2>Subscribe to events</h2><label><input id="event-meta" type="checkbox">Meta</label><label><input id="event-security" type="checkbox">Security advisory</label>
+<fieldset><legend>Where can this GitHub App be installed?</legend><label><input type="radio" name="where" value="only" checked>Only on this account</label><label><input type="radio" name="where" value="any">Any account</label></fieldset>
+<label>元文章にない項目<input id="unspecified" name="unknown" value="この値はそのまま"></label>
+<button type="button">テスト送信ボタン（動作しません）</button>
+</form></body></html>
