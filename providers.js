@@ -15,7 +15,9 @@ export const providers=Object.freeze({
     unwrap:json=>{const result=answersOf(json);if(!result) throw new Error(malformed);return result;}
   }),
   cloudflare:Object.freeze({
-    id:'cloudflare',name:'Cloudflare Workers AI',host:'https://api.cloudflare.com',model:'clef-flash',usesAccountId:true,thresholds:Object.freeze({...jevThresholds}),
+    id:'cloudflare',name:'Cloudflare Workers AI',host:'https://api.cloudflare.com',model:'clef-flash',usesAccountId:true,
+    // Only confidence differs from Jev; fitted on the tuning fixtures in docs/validation.md (dev/measure-thresholds.mjs).
+    thresholds:Object.freeze({...jevThresholds,confidence:0.7}),
     keyLabel:'tokenLabel',
     settingsError:({key,accountId})=>!key?.trim()?'Cloudflare Workers AIのAPIトークンを設定してください。':ACCOUNT_ID.test(accountId?.trim()||'')?null:'Account IDは32文字の英数字で入力してください。',
     url:({accountId})=>`https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(accountId.trim())}/ai/run/@cf/cloudflare/clef-flash`,

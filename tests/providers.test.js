@@ -13,8 +13,8 @@ test('manifest host permissions and connect-src list exactly the provider hosts'
   assert.deepEqual(connect.sort(),hosts);
   for(const provider of Object.values(providers)) assert.equal(new URL(provider.url({accountId})).origin,provider.host);
 });
-test('cloudflare thresholds start equal to the Jev profile',()=>{
-  assert.deepEqual({...providers.cloudflare.thresholds},{...providers.typesafe.thresholds});
+test('cloudflare relaxes only confidence; p, margin and the noul verification stay at the Jev values',()=>{
+  assert.deepEqual({...providers.cloudflare.thresholds},{...providers.typesafe.thresholds,confidence:0.7});
   assert.equal(providers.typesafe.model,'jev-latest');
 });
 test('cloudflare requests use the account URL and the same fetch hardening',async()=>{
