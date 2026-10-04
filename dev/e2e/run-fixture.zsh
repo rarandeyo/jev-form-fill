@@ -29,7 +29,8 @@ wait_idle
 $A eval "document.getElementById('settings').open=false;document.getElementById('status').textContent" > $out/$name-status-analyze.txt
 $A eval "document.getElementById('diagnostics').value" --json | data result > $out/$name-diagnostics.json
 $A screenshot --full $out/$name-popup.png >/dev/null
-if [[ $($A eval "document.getElementById('apply').disabled") == true ]]; then : ; else $A click '#apply' >/dev/null; wait_idle; fi
+apply_disabled=$($A eval "document.getElementById('apply').disabled")
+if [[ $apply_disabled != true ]]; then $A click '#apply' >/dev/null; wait_idle; fi
 $A eval "document.getElementById('status').textContent" > $out/$name-status-apply.txt
 
 $A tab $form_tab >/dev/null

@@ -9,7 +9,7 @@ const out=path.resolve(process.argv[2]||'');
 if(!process.argv[2]||(await readdir(out).catch(()=>[])).length) throw new Error('Pass an empty output directory.');
 await mkdir(out,{recursive:true});
 const zip=path.join(out,'jev-form-fill.zip');
-execFileSync('python3',[path.join(root,'scripts/package.py'),'--output',zip],{stdio:'ignore'});
+execFileSync('python3',[path.join(root,'scripts/package.py'),'--output',zip],{stdio:['ignore','ignore','inherit']});
 execFileSync('unzip',['-q',zip,'-d',out]);
 const manifestPath=path.join(out,'jev-form-fill/manifest.json');
 const manifest=JSON.parse(await readFile(manifestPath,'utf8'));

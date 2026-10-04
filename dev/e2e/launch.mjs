@@ -24,5 +24,7 @@ fromChrome.on('data',data=>{buffer+=data;let end;while((end=buffer.indexOf('\0')
 const send=(method,params={})=>new Promise(resolve=>{const i=++id;pending.set(i,resolve);toChrome.write(JSON.stringify({id:i,method,params})+'\0');});
 const loaded=await send('Extensions.loadUnpacked',{path:path.resolve(extension)});
 if(!loaded.result?.id) {console.error(JSON.stringify(loaded));finish(1);}
-ready=true;
-console.log(JSON.stringify({ready:true,port:Number(port),chromePid:chrome.pid,launcherPid:process.pid,extensionId:loaded.result.id}));
+else {
+  ready=true;
+  console.log(JSON.stringify({ready:true,port:Number(port),chromePid:chrome.pid,launcherPid:process.pid,extensionId:loaded.result.id}));
+}

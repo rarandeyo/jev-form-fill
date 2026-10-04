@@ -55,13 +55,13 @@ The `npm run package` ZIP, with `http://127.0.0.1/*` added to a test-only copy o
 | contact-ja | 3 of 5 required, plus prefecture 東京都; 氏名 and フリガナ skipped | 0 | all restored |
 | lab | normal 25/28, protected 18/18, stress 0/8 (lab grader) | 0 | 25 restored; the later page edit to Delayed alias kept |
 
-No lab decision depended on the lowered value; every accepted lab row cleared 0.75. Lab misses were 参加方法, the explicit blank for Middle name, and newsletter OFF. Stress cases include the misleading notification email that TypeSafe filled in the 0.1.3 trial. An earlier version of the harness dropped the trailing newline; with that input and confidence 0.75, the contact form's email was skipped in three of three browser runs.
+No decision in these browser runs depended on the lowered value: every accepted row cleared 0.75. The one case 0.70 changes (the contact form without a final newline) was measured only in Node. Lab misses were 参加方法, the explicit blank for Middle name, and newsletter OFF. Stress cases include the misleading notification email that TypeSafe filled in the 0.1.3 trial.
 
 The browser run replaces `chrome.tabs.query` in the popup tab and grants host access to the local server, so it does not test the production permission path (toolbar click granting activeTab and the popup finding the page's window).
 
 ### Limits
 
-The value was fitted on three small fictional forms (18 required changes) and checked on one lab form. It is not a calibrated probability or an accuracy figure. Clef answered identically across runs, so repeated runs add no independent evidence. The replay assumes an answer does not depend on which other questions share a request; the browser runs at 0.75 and 0.70 gave the same fills as the replay for demo-form and contact-ja.
+The value was fitted on three small fictional forms (18 required changes) and checked on one lab form. It is not a calibrated probability or an accuracy figure. Clef answered identically across runs, so repeated runs add no independent evidence. The replay assumes an answer does not depend on which other questions share a request; the browser runs gave the same fills as the replay for demo-form and contact-ja.
 
 ## Automated checks
 

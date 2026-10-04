@@ -4,7 +4,7 @@ import {callJev} from './client.js';
 import {providers,providerOf,validAccountId,DEFAULT_PROVIDER} from './providers.js';
 import {resolveLanguage,translator,localizeMessage} from './i18n.js';
 const $=id=>document.getElementById(id);
-let tabId,plan=null,rows=[],controller=null,busy=false,sourceVersion=0,provider=providers[DEFAULT_PROVIDER],usedProvider=null,savedKeys={},savedAccountId='',drafts={};
+let tabId,plan=null,rows=[],controller=null,busy=false,sourceVersion=0,provider=providers[DEFAULT_PROVIDER],usedProvider=null,savedKeys={},drafts={};
 const browserLanguage=chrome.i18n?.getUILanguage?.()||navigator.language||'en';
 let language=resolveLanguage(undefined,browserLanguage),t=translator(language);
 const status=(text,error=false)=>{$('status').textContent=localizeMessage(text,language);$('status').classList.toggle('error',error);};
@@ -30,7 +30,7 @@ async function writeCredentials(keys,accountId) {
   const next={keys:validKeys(keys)};
   next.accountId=Object.keys(next.keys).some(id=>providers[id].usesAccountId)&&validAccountId(accountId)?accountId:'';
   await chrome.storage.local.set(next);
-  savedKeys=next.keys;savedAccountId=next.accountId;
+  savedKeys=next.keys;
 }
 // Starts from storage, not this popup's copy, so a save made from another window's popup is kept.
 async function updateCredentials(id,key,accountId) {
@@ -135,7 +135,7 @@ async function initialize() {
     await chrome.storage.local.setAccessLevel({accessLevel:'TRUSTED_CONTEXTS'});
     const stored=await chrome.storage.local.get(['apiKey','keys','provider','accountId','uiLanguage']);
     const keys=validKeys(stored.keys);
-    savedAccountId=typeof stored.accountId==='string'&&validAccountId(stored.accountId)?stored.accountId:'';
+    const savedAccountId=typeof stored.accountId==='string'&&validAccountId(stored.accountId)?stored.accountId:'';
     if(typeof stored.apiKey==='string') {if(stored.apiKey && !keys.typesafe) keys.typesafe=stored.apiKey;await writeCredentials(keys,savedAccountId);await chrome.storage.local.remove('apiKey');}
     else savedKeys=keys;
     drafts={...savedKeys};provider=providerOf(stored.provider);$('account-id').value=savedAccountId;

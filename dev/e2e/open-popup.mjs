@@ -15,7 +15,7 @@ ws.onmessage=event=>{const message=JSON.parse(event.data);if(message.id&&pending
 const send=(method,params={},sessionId)=>new Promise((resolve,reject)=>{const i=++id;pending.set(i,m=>m.error?reject(new Error(`${method}: ${m.error.message}`)):resolve(m.result));ws.send(JSON.stringify({id:i,method,params,sessionId}));});
 const {targetId}=await send('Target.createTarget',{url:'about:blank'});
 const {sessionId}=await send('Target.attachToTarget',{targetId,flatten:true});
-const evaluate=async expression=>(await send('Runtime.evaluate',{expression,awaitPromise:true,returnByValue:true},sessionId)).result.value;
+const evaluate=async expression=>{const {result,exceptionDetails}=await send('Runtime.evaluate',{expression,awaitPromise:true,returnByValue:true},sessionId);if(exceptionDetails) throw new Error(exceptionDetails.exception?.description||exceptionDetails.text);return result.value;};
 await send('Page.enable',{},sessionId);
 const override=`(()=>{if(!globalThis.chrome?.tabs?.query)return;const query=chrome.tabs.query.bind(chrome.tabs);
   chrome.tabs.query=async info=>info&&info.active&&info.currentWindow?(await query({})).filter(tab=>tab.url===${JSON.stringify(targetUrl)}).slice(-1):query(info);})();`;

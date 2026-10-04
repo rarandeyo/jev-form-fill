@@ -48,4 +48,5 @@ async function main([command,name,dir,minimum='0']) {
   console.log(JSON.stringify(result,null,1));
   process.exitCode=result.strong?(result.mediumPass?0:3):1;
 }
-if(process.argv[1]===fileURLToPath(import.meta.url)) await main(process.argv.slice(2));
+// Exit 2 marks a harness failure (missing or broken state files), distinct from a failed test.
+if(process.argv[1]===fileURLToPath(import.meta.url)) await main(process.argv.slice(2)).catch(error=>{console.error(error.message);process.exitCode=2;});
