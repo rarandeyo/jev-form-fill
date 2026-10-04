@@ -84,6 +84,8 @@ node lab/server.js --port 0
 
 表示されたURLをChromeで開きます。サーバーは127.0.0.1だけで待ち受け、送信結果をGit管理対象外の `.local/form-fill-lab/receipts/` に保存します。詳しくは [試験フォームの使い方](https://github.com/takasek/jev-form-fill/blob/main/lab/README.md) と [検証結果・限界](https://github.com/takasek/jev-form-fill/blob/main/docs/validation.md) を参照してください。
 
+Cloudflare Workers AIでのClefのしきい値の測定と、配布ZIPをChromeに読み込む統合テストの手順は [dev/README.md](https://github.com/rarandeyo/jev-form-fill/blob/main/dev/README.md) にあります。
+
 GitHub Appの設定例も [examples/](https://github.com/takasek/jev-form-fill/tree/main/examples) にあります。実際のGitHub App作成画面での入力互換性は未検証です。
 
 配布用ZIPはPython 3.9以上で作成できます。

@@ -94,6 +94,8 @@ Open the printed URL in Chrome. The lab binds only to `127.0.0.1` and saves fict
 
 In one real Chrome/API run of v0.1.3, normal inputs matched **28/28** and protected fields remained correct **18/18**. Stress tests matched **1/8**, with unsupported cases documented. A second analysis filled the dynamic dietary field and displayed both page-rejection failures; that second run was not fully graded. This is a fixture result, not a claim of compatibility with every website. The live GitHub App creation page is unverified.
 
+Measuring Clef's thresholds and the browser run of the packaged extension with Cloudflare Workers AI are described in [dev/README.md](https://github.com/rarandeyo/jev-form-fill/blob/main/dev/README.md).
+
 Tests use mocked model answers/Chrome APIs and jsdom; they do not call TypeSafe. Build the distribution ZIP with Python 3.9+:
 
 ```sh
