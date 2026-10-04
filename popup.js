@@ -102,8 +102,8 @@ $('analyze').addEventListener('click',()=>run(async()=>{
   const key=$('api-key').value.trim(),accountId=$('account-id').value.trim(),source=$('source').value,version=sourceVersion,current=provider;
   const problem=current.settingsError({key,accountId});
   if(problem) {$('settings').open=true;throw new Error(problem);}
-  // Neither the entered key nor any saved key may travel inside the text to whichever host is selected.
-  if([key,...Object.values(savedKeys)].map(x=>x?.trim()).some(x=>x&&source.includes(x))) throw new Error('文章に設定済みまたは保存済みのAPIキー・トークンが含まれています。取り除いてください。');
+  // No key entered in this popup (for any provider) nor any saved key may travel inside the text to whichever host is selected.
+  if([key,...Object.values(drafts),...Object.values(savedKeys)].map(x=>x?.trim()).some(x=>x&&source.includes(x))) throw new Error('文章に設定済みまたは保存済みのAPIキー・トークンが含まれています。取り除いてください。');
   if(!source.trim()) throw new Error('元の文章を入力してください。');
   controller=new AbortController();
   const signal=controller.signal;
@@ -136,7 +136,7 @@ async function initialize() {
     const stored=await chrome.storage.local.get(['apiKey','keys','provider','accountId','uiLanguage']);
     const keys=validKeys(stored.keys);
     const savedAccountId=typeof stored.accountId==='string'&&validAccountId(stored.accountId)?stored.accountId:'';
-    if(typeof stored.apiKey==='string') {if(stored.apiKey && !keys.typesafe) keys.typesafe=stored.apiKey;await writeCredentials(keys,savedAccountId);await chrome.storage.local.remove('apiKey');}
+    if(typeof stored.apiKey==='string') {if(stored.apiKey) keys.typesafe=stored.apiKey;await writeCredentials(keys,savedAccountId);await chrome.storage.local.remove('apiKey');}
     else savedKeys=keys;
     drafts={...savedKeys};provider=providerOf(stored.provider);$('account-id').value=savedAccountId;
     showProvider();$('settings').open=!savedKeys[provider.id];

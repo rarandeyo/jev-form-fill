@@ -59,3 +59,6 @@ test('cloudflare settings are validated before any request; the account id is UR
   }
   assert.match(providers.cloudflare.url({accountId:'a/b?c'}),/accounts\/a%2Fb%3Fc\/ai/);
 });
+test('abort and timeout while reading an error body keep their error names',async()=>{
+  for(const name of ['AbortError','TimeoutError']) await assert.rejects(callJev({},'t',{fetcher:async()=>({ok:false,status:500,json:async()=>{throw new DOMException('stopped',name);}})}),error=>error.name===name);
+});

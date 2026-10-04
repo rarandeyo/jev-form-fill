@@ -225,3 +225,18 @@ test('saving one provider keeps what another popup saved in the meantime',async(
   ui.$('forget-key').click();await waitFor(()=>!ui.$('forget-key').disabled);
   assert.deepEqual(plain(ui.saved()),{keys:{cloudflare:'cf-other'},accountId:cfAccount});
 });
+test('a key typed for another provider but never saved is still kept out of the text',async()=>{
+  let calls=0;
+  const ui=popup({call:async()=>{calls++;return {answers:{}};}});
+  await waitFor(()=>ui.$('target').textContent.includes('example.com'));
+  ui.$('api-key').value='ts-unsaved-secret';
+  await choose(ui,'cloudflare');
+  ui.$('api-key').value='cf-token';ui.$('account-id').value=cfAccount;ui.$('source').value='Active: off ts-unsaved-secret';ui.$('analyze').click();await waitFor(()=>!ui.$('analyze').disabled);
+  assert.match(ui.$('status').textContent,/APIキー・トークンが含まれ/);
+  assert.equal(calls,0);
+});
+test('a legacy apiKey wins over an older keys.typesafe left by a downgrade',async()=>{
+  const ui=popup({initialSaved:{apiKey:'newer-key',keys:{typesafe:'older-key'}}});
+  await waitFor(()=>ui.$('target').textContent.includes('example.com'));
+  assert.equal(ui.saved().keys.typesafe,'newer-key');assert.equal(ui.saved().apiKey,undefined);
+});

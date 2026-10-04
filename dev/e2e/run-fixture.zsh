@@ -5,11 +5,18 @@
 # Writes <name>-*.json states, popup messages, diagnostics and two screenshots to the output dir.
 # Exit 0 both oracles pass, 1 strong oracle fails, 3 too few fills, 2 the harness itself failed.
 set -euo pipefail
-trap 'exit 2' ERR
 port=$1 ext=$2 name=$3 url=$4 out=$5 minimum=${6:-0}
 root=${0:A:h:h:h}
 : ${CF_ACCOUNT_ID:?} ${CF_API_TOKEN:?} ${AGENT_BROWSER_SESSION:?}
 A=(agent-browser --cdp $port)
+popup_tab='' form_tab=''
+# The popup tab holds the token in its key field, so close both tabs even when a step fails part way.
+abort_run() {
+  [[ -n $popup_tab ]] && $A tab close $popup_tab >/dev/null 2>&1 || true
+  [[ -n $form_tab ]] && $A tab close $form_tab >/dev/null 2>&1 || true
+  exit 2
+}
+trap abort_run ERR
 state=$(node $root/dev/e2e/fixture.mjs state $name)
 idle="!document.getElementById('analyze').disabled"
 # agent-browser --json wraps results; print data.<path>.
@@ -42,9 +49,9 @@ $A tab $popup_tab >/dev/null
 $A click '#undo' >/dev/null
 wait_idle
 $A eval "document.getElementById('status').textContent" > $out/$name-status-undo.txt
-$A tab close $popup_tab >/dev/null
+$A tab close $popup_tab >/dev/null; popup_tab=
 $A tab $form_tab >/dev/null
 $A eval "$state" --json | data result > $out/$name-undone.json
-$A tab close $form_tab >/dev/null || true
+$A tab close $form_tab >/dev/null || true; form_tab=
 trap - ERR
 node $root/dev/e2e/fixture.mjs grade $name $out $minimum > $out/$name-grade.json

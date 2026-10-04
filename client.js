@@ -9,7 +9,7 @@ export async function callJev(body,key,{signal,fetcher=fetch,provider=providers.
   });
   if (!response.ok) {
     // Upstream error bodies are never shown; only known codes pick a fixed message.
-    let detail=null;try{detail=await response.json?.();}catch{}
+    let detail=null;try{detail=await response.json?.();}catch(error){if(error?.name==='AbortError'||error?.name==='TimeoutError') throw error;}
     throw new Error(provider.error(response.status,detail) || `APIエラー (${response.status})`);
   }
   let json;
