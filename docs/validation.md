@@ -32,7 +32,7 @@ As of 2026-10-05, version 0.2.0. Clef (`clef-flash`) uses the Jev thresholds exc
 
 ### Tuning (Node)
 
-`node dev/measure-thresholds.mjs 2` ran each tuning fixture through Clef with confidence 0 and the other thresholds unchanged, recorded every decision, and replayed confidence values from 0.75 down to 0 on those decisions. The fixtures are `examples/demo-form.html`, `examples/github-app-form.html` and the Japanese contact form `examples/contact-form-ja.html`; expected values are in `dev/forms.mjs`. Pasting into the popup drops a trailing newline and that shifts Clef's confidences, so sources ending in a newline were measured both ways. Two runs per source returned identical answers.
+`node dev/measure-thresholds.mjs 2` ran each tuning fixture through Clef with confidence 0 and the other thresholds unchanged, recorded every decision, and replayed confidence values from 0.75 down to 0 on those decisions. The fixtures are `examples/demo-form.html`, `examples/github-app-form.html` and the Japanese contact form `examples/contact-form-ja.html`; expected values are in `dev/forms.mjs`. Copied text often has no trailing newline, and that shifts Clef's confidences, so sources ending in a newline were measured both ways. Two runs per source returned identical answers.
 
 | Fixture | Required changes | Made at 0.75 | Made at 0.70 … 0 | Wrong fills |
 | --- | ---: | ---: | ---: | ---: |
@@ -47,15 +47,15 @@ The remaining misses are stopped by gates that were not changed. The whole-sourc
 
 ### Browser run (verification)
 
-The `npm run package` ZIP, with `http://127.0.0.1/*` added to a test-only copy of the manifest, was loaded into headless Chrome 151 and driven with agent-browser (`dev/e2e/`). Each form was analyzed once with Clef at confidence 0.70, then filled, read back and undone.
+The `npm run package` ZIP, with `http://127.0.0.1/*` added to a test-only copy of the manifest, was loaded into headless Chrome 151 and driven with agent-browser (`dev/e2e/`). The fixture's source text was entered byte for byte, including its trailing newline. Each form was analyzed once with Clef at confidence 0.70, then filled, read back and undone.
 
 | Form | Filled correctly | Wrong fills | Undo |
 | --- | --- | ---: | --- |
-| demo-form | 5 of 6 required; telephone left unchanged; newsletter OFF not proposed | 0 | all 5 restored |
+| demo-form | 5 of 6 required; telephone left unchanged; newsletter OFF rejected by the whole-source check | 0 | all 5 restored |
 | contact-ja | 3 of 5 required, plus prefecture 東京都; 氏名 and フリガナ skipped | 0 | all restored |
 | lab | normal 25/28, protected 18/18, stress 0/8 (lab grader) | 0 | 25 restored; the later page edit to Delayed alias kept |
 
-No lab decision depended on the lowered value; every accepted lab row cleared 0.75. Lab misses were 参加方法, the explicit blank for Middle name, and newsletter OFF. Stress cases include the misleading notification email that TypeSafe filled in the 0.1.3 trial. Before the change, the contact form's email was skipped in three of three browser runs at 0.75.
+No lab decision depended on the lowered value; every accepted lab row cleared 0.75. Lab misses were 参加方法, the explicit blank for Middle name, and newsletter OFF. Stress cases include the misleading notification email that TypeSafe filled in the 0.1.3 trial. An earlier version of the harness dropped the trailing newline; with that input and confidence 0.75, the contact form's email was skipped in three of three browser runs.
 
 The browser run replaces `chrome.tabs.query` in the popup tab and grants host access to the local server, so it does not test the production permission path (toolbar click granting activeTab and the popup finding the page's window).
 

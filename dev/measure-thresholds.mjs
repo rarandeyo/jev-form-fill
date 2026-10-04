@@ -11,8 +11,8 @@ import {providers} from '../providers.js';
 import {fixtures,readState,grade} from './forms.mjs';
 const require=createRequire(import.meta.url);
 const {JSDOM}=require('jsdom');
-const provider=providers.cloudflare,runs=Number(process.argv[2]||3);
-const grid=[0.75,0.7,0.65,0.6,0.55,0.5,0.45,0.4,0.3,0];
+const provider=providers.cloudflare,runs=Number(process.argv[2]||2),jev=providers.typesafe.thresholds.confidence;
+const grid=[jev,0.7,0.65,0.6,0.55,0.5,0.45,0.4,0.3,0];
 const key=process.env.CF_API_TOKEN,accountId=process.env.CF_ACCOUNT_ID;
 if(provider.settingsError({key,accountId})) throw new Error('Set CF_ACCOUNT_ID and CF_API_TOKEN.');
 function page(html) {
@@ -33,7 +33,7 @@ async function applyAt(fixture,rows,confidence) {
 }
 const all=[],outDir=new URL('../.local/thresholds/',import.meta.url);
 await mkdir(outDir,{recursive:true});
-// Pasting into the popup drops a trailing newline, and Clef's confidences shift with it, so both forms are measured.
+// Copied text often has no trailing newline, and Clef's confidences shift with it, so both forms are measured.
 const variants=(await fixtures()).flatMap(fixture=>fixture.source===fixture.source.trimEnd()?[fixture]:[fixture,{...fixture,name:`${fixture.name} (no final newline)`,source:fixture.source.trimEnd()}]);
 for(const fixture of variants) for(let run=1;run<=runs;run++) {
   const {dom,command}=page(fixture.html);
@@ -53,7 +53,7 @@ for(const confidence of grid) {
   const sum=key=>totals.reduce((a,b)=>a+b[key],0);
   console.log(`${confidence} | ${cells.join(' | ')} | ${sum('done')}/${sum('needed')} | ${sum('filled')} | ${sum('wrong')}`);
 }
-console.log('\nRows accepted only below 0.75 (fixture/run/label: lowest value-gate confidence, value):');
-for(const run of all) for(const row of run.rows.filter(x=>acceptedAt(x,0)&&!acceptedAt(x,0.75))) {
+console.log(`\nRows accepted only below ${jev} (fixture/run/label: lowest value-gate confidence, value):`);
+for(const run of all) for(const row of run.rows.filter(x=>acceptedAt(x,0)&&!acceptedAt(x,jev))) {
   console.log(`${run.fixture}/${run.run}/${row.label}: ${Math.min(...row.diagnostics.filter(x=>x.gate==='value').map(x=>x.confidence)).toFixed(4)} ${JSON.stringify(row.value)}`);
 }

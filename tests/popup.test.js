@@ -209,3 +209,19 @@ test('an empty saved account id reads as missing',async()=>{
   ui.$('source').value='Active: off';ui.$('analyze').click();await waitFor(()=>!ui.$('analyze').disabled);
   assert.match(ui.$('status').textContent,/Account ID/);
 });
+test('an invalid saved account id reads as missing',async()=>{
+  const ui=popup({initialSaved:{keys:{cloudflare:'cf-token'},provider:'cloudflare',accountId:'not-a-valid-id'}});
+  await waitFor(()=>ui.$('target').textContent.includes('example.com'));
+  assert.equal(ui.$('account-id').value,'');
+  ui.$('source').value='Active: off';ui.$('analyze').click();await waitFor(()=>!ui.$('analyze').disabled);
+  assert.match(ui.$('status').textContent,/Account ID/);
+});
+test('saving one provider keeps what another popup saved in the meantime',async()=>{
+  const ui=popup({initialSaved:{keys:{typesafe:'ts-key'}}});
+  await waitFor(()=>ui.$('target').textContent.includes('example.com'));
+  await ui.win.chrome.storage.local.set({keys:{typesafe:'ts-key',cloudflare:'cf-other'},accountId:cfAccount});
+  ui.$('api-key').value='ts-new';ui.$('remember').checked=true;ui.$('save-key').click();await waitFor(()=>!ui.$('save-key').disabled);
+  assert.deepEqual(plain(ui.saved()),{keys:{typesafe:'ts-new',cloudflare:'cf-other'},accountId:cfAccount});
+  ui.$('forget-key').click();await waitFor(()=>!ui.$('forget-key').disabled);
+  assert.deepEqual(plain(ui.saved()),{keys:{cloudflare:'cf-other'},accountId:cfAccount});
+});

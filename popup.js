@@ -24,11 +24,20 @@ function showProvider() {
   $('api-key').value=drafts[provider.id]||'';$('remember').checked=Boolean(savedKeys[provider.id]);localizeUI();
 }
 const validKeys=keys=>Object.fromEntries(Object.entries(keys&&typeof keys==='object'?keys:{}).filter(([id,key])=>Object.hasOwn(providers,id)&&typeof key==='string'&&key));
-// Keys and the account id go in one write so a failure cannot leave a token paired with another account id. '' means no account id.
-async function writeCredentials(keys,accountId=savedAccountId) {
-  const next={keys:validKeys(keys),accountId:validAccountId(accountId)?accountId:''};
+// Keys and the account id go in one write so a failure cannot leave a token paired with another account id.
+// The account id is kept only while a saved token uses it; '' means none.
+async function writeCredentials(keys,accountId) {
+  const next={keys:validKeys(keys)};
+  next.accountId=Object.keys(next.keys).some(id=>providers[id].usesAccountId)&&validAccountId(accountId)?accountId:'';
   await chrome.storage.local.set(next);
   savedKeys=next.keys;savedAccountId=next.accountId;
+}
+// Starts from storage, not this popup's copy, so a save made from another window's popup is kept.
+async function updateCredentials(id,key,accountId) {
+  const stored=await chrome.storage.local.get(['keys','accountId']);
+  const keys=validKeys(stored.keys);
+  if(key) keys[id]=key;else delete keys[id];
+  await writeCredentials(keys,providers[id].usesAccountId?accountId:stored.accountId);
 }
 async function command(request) {
   if (!tabId) throw new Error('対象ページを開いてから、拡張機能を開き直してください。');
@@ -81,16 +90,13 @@ $('account-id').addEventListener('input',invalidate);
 async function saveKey() {
   const key=$('api-key').value.trim(),accountId=$('account-id').value.trim();
   drafts[provider.id]=key;
-  const keys={...savedKeys};
   const remember=$('remember').checked && key;
   const problem=remember?provider.settingsError({key,accountId}):null;
   if(problem) {$('settings').open=true;throw new Error(problem);}
-  if(remember) keys[provider.id]=key;else delete keys[provider.id];
-  // The account id is saved and deleted together with the provider's token.
-  await writeCredentials(keys,provider.usesAccountId?(remember?accountId:''):savedAccountId);
+  await updateCredentials(provider.id,remember?key:'',accountId);
 }
 $('save-key').addEventListener('click',()=>run(async()=>{await saveKey();status($('remember').checked?'APIキーをこのブラウザに保存しました。':'キーはこの画面だけで使用します。保存済みのキーは削除しました。');}));
-$('forget-key').addEventListener('click',()=>run(async()=>{const keys={...savedKeys};delete keys[provider.id];await writeCredentials(keys,provider.usesAccountId?'':savedAccountId);drafts[provider.id]='';$('api-key').value='';$('remember').checked=false;invalidate();status('APIキーを削除しました。');}));
+$('forget-key').addEventListener('click',()=>run(async()=>{await updateCredentials(provider.id,'','');drafts[provider.id]='';$('api-key').value='';$('remember').checked=false;invalidate();status('APIキーを削除しました。');}));
 $('analyze').addEventListener('click',()=>run(async()=>{
   invalidate();
   const key=$('api-key').value.trim(),accountId=$('account-id').value.trim(),source=$('source').value,version=sourceVersion,current=provider;
@@ -130,7 +136,7 @@ async function initialize() {
     const stored=await chrome.storage.local.get(['apiKey','keys','provider','accountId','uiLanguage']);
     const keys=validKeys(stored.keys);
     savedAccountId=typeof stored.accountId==='string'&&validAccountId(stored.accountId)?stored.accountId:'';
-    if(typeof stored.apiKey==='string') {if(stored.apiKey && !keys.typesafe) keys.typesafe=stored.apiKey;await writeCredentials(keys);await chrome.storage.local.remove('apiKey');}
+    if(typeof stored.apiKey==='string') {if(stored.apiKey && !keys.typesafe) keys.typesafe=stored.apiKey;await writeCredentials(keys,savedAccountId);await chrome.storage.local.remove('apiKey');}
     else savedKeys=keys;
     drafts={...savedKeys};provider=providerOf(stored.provider);$('account-id').value=savedAccountId;
     showProvider();$('settings').open=!savedKeys[provider.id];
