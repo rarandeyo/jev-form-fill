@@ -4,7 +4,7 @@ import {callJev} from './client.js';
 import {providers,providerOf,validAccountId,DEFAULT_PROVIDER} from './providers.js';
 import {resolveLanguage,translator,localizeMessage} from './i18n.js';
 const $=id=>document.getElementById(id);
-let tabId,plan=null,rows=[],controller=null,busy=false,sourceVersion=0,provider=providers[DEFAULT_PROVIDER],usedProvider=null,savedKeys={},drafts={};
+let tabId,plan=null,rows=[],controller=null,busy=false,sourceVersion=0,provider=providers[DEFAULT_PROVIDER],usedProvider=null,savedKeys={},savedAccountId='',drafts={};
 const browserLanguage=chrome.i18n?.getUILanguage?.()||navigator.language||'en';
 let language=resolveLanguage(undefined,browserLanguage),t=translator(language);
 const status=(text,error=false)=>{$('status').textContent=localizeMessage(text,language);$('status').classList.toggle('error',error);};
@@ -24,10 +24,11 @@ function showProvider() {
   $('api-key').value=drafts[provider.id]||'';$('remember').checked=Boolean(savedKeys[provider.id]);localizeUI();
 }
 const validKeys=keys=>Object.fromEntries(Object.entries(keys&&typeof keys==='object'?keys:{}).filter(([id,key])=>Object.hasOwn(providers,id)&&typeof key==='string'&&key));
-async function writeKeys(keys) {
-  savedKeys=validKeys(keys);
-  if(Object.keys(savedKeys).length) await chrome.storage.local.set({keys:savedKeys});
-  else await chrome.storage.local.remove('keys');
+// Keys and the account id go in one write so a failure cannot leave a token paired with another account id. '' means no account id.
+async function writeCredentials(keys,accountId=savedAccountId) {
+  const next={keys:validKeys(keys),accountId:validAccountId(accountId)?accountId:''};
+  await chrome.storage.local.set(next);
+  savedKeys=next.keys;savedAccountId=next.accountId;
 }
 async function command(request) {
   if (!tabId) throw new Error('対象ページを開いてから、拡張機能を開き直してください。');
@@ -85,16 +86,11 @@ async function saveKey() {
   const problem=remember?provider.settingsError({key,accountId}):null;
   if(problem) {$('settings').open=true;throw new Error(problem);}
   if(remember) keys[provider.id]=key;else delete keys[provider.id];
-  await writeKeys(keys);
-  if(provider.usesAccountId) await writeAccountId(remember?accountId:'');
-}
-// The account id is saved and deleted together with the provider's token.
-async function writeAccountId(accountId) {
-  if(validAccountId(accountId)) await chrome.storage.local.set({accountId});
-  else await chrome.storage.local.remove('accountId');
+  // The account id is saved and deleted together with the provider's token.
+  await writeCredentials(keys,provider.usesAccountId?(remember?accountId:''):savedAccountId);
 }
 $('save-key').addEventListener('click',()=>run(async()=>{await saveKey();status($('remember').checked?'APIキーをこのブラウザに保存しました。':'キーはこの画面だけで使用します。保存済みのキーは削除しました。');}));
-$('forget-key').addEventListener('click',()=>run(async()=>{const keys={...savedKeys};delete keys[provider.id];await writeKeys(keys);if(provider.usesAccountId) await writeAccountId('');drafts[provider.id]='';$('api-key').value='';$('remember').checked=false;invalidate();status('APIキーを削除しました。');}));
+$('forget-key').addEventListener('click',()=>run(async()=>{const keys={...savedKeys};delete keys[provider.id];await writeCredentials(keys,provider.usesAccountId?'':savedAccountId);drafts[provider.id]='';$('api-key').value='';$('remember').checked=false;invalidate();status('APIキーを削除しました。');}));
 $('analyze').addEventListener('click',()=>run(async()=>{
   invalidate();
   const key=$('api-key').value.trim(),accountId=$('account-id').value.trim(),source=$('source').value,version=sourceVersion,current=provider;
@@ -133,9 +129,10 @@ async function initialize() {
     await chrome.storage.local.setAccessLevel({accessLevel:'TRUSTED_CONTEXTS'});
     const stored=await chrome.storage.local.get(['apiKey','keys','provider','accountId','uiLanguage']);
     const keys=validKeys(stored.keys);
-    if(typeof stored.apiKey==='string') {if(stored.apiKey && !keys.typesafe) keys.typesafe=stored.apiKey;await writeKeys(keys);await chrome.storage.local.remove('apiKey');}
+    savedAccountId=typeof stored.accountId==='string'&&validAccountId(stored.accountId)?stored.accountId:'';
+    if(typeof stored.apiKey==='string') {if(stored.apiKey && !keys.typesafe) keys.typesafe=stored.apiKey;await writeCredentials(keys);await chrome.storage.local.remove('apiKey');}
     else savedKeys=keys;
-    drafts={...savedKeys};provider=providerOf(stored.provider);$('account-id').value=typeof stored.accountId==='string'?stored.accountId:'';
+    drafts={...savedKeys};provider=providerOf(stored.provider);$('account-id').value=savedAccountId;
     showProvider();$('settings').open=!savedKeys[provider.id];
     const preference=['en','ja'].includes(stored.uiLanguage)?stored.uiLanguage:'auto';
     $('language').value=preference;language=resolveLanguage(preference,browserLanguage);t=translator(language);localizeUI();
