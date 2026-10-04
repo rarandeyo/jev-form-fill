@@ -359,6 +359,10 @@ export const messages = {
     "en": "API error ({code})",
     "ja": "APIエラー ({code})"
   },
+  "dailyLimit": {
+    "en": "The API's daily allowance is used up.",
+    "ja": "APIの1日の利用枠を使い切りました。"
+  },
   "malformed": {
     "en": "The API did not return valid answers.",
     "ja": "APIから有効な回答が返りませんでした。"

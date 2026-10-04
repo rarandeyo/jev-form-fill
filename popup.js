@@ -1,7 +1,7 @@
 import {evaluate} from './core.js';
 import {pageCommand} from './page.js';
 import {callJev} from './client.js';
-import {providers,providerOf,DEFAULT_PROVIDER} from './providers.js';
+import {providers,providerOf,validAccountId,DEFAULT_PROVIDER} from './providers.js';
 import {resolveLanguage,translator,localizeMessage} from './i18n.js';
 const $=id=>document.getElementById(id);
 let tabId,plan=null,rows=[],controller=null,busy=false,sourceVersion=0,provider=providers[DEFAULT_PROVIDER],usedProvider=null,savedKeys={},drafts={};
@@ -73,26 +73,33 @@ $('cancel').addEventListener('click',()=>controller?.abort());
 $('provider').addEventListener('change',()=>run(async()=>{
   drafts[provider.id]=$('api-key').value;
   provider=providerOf($('provider').value);
-  await chrome.storage.local.set({provider:provider.id});
   invalidate();showProvider();
+  await chrome.storage.local.set({provider:provider.id});
 }));
+$('account-id').addEventListener('input',invalidate);
 async function saveKey() {
   const key=$('api-key').value.trim(),accountId=$('account-id').value.trim();
   drafts[provider.id]=key;
   const keys={...savedKeys};
-  if($('remember').checked && key) {keys[provider.id]=key;if(provider.usesAccountId && accountId) await chrome.storage.local.set({accountId});}
-  else delete keys[provider.id];
+  const remember=$('remember').checked && key;
+  if(remember) keys[provider.id]=key;else delete keys[provider.id];
   await writeKeys(keys);
+  if(provider.usesAccountId) await writeAccountId(remember?accountId:'');
+}
+// The account id is saved and deleted together with the provider's token.
+async function writeAccountId(accountId) {
+  if(validAccountId(accountId)) await chrome.storage.local.set({accountId});
+  else await chrome.storage.local.remove('accountId');
 }
 $('save-key').addEventListener('click',()=>run(async()=>{await saveKey();status($('remember').checked?'APIキーをこのブラウザに保存しました。':'キーはこの画面だけで使用します。保存済みのキーは削除しました。');}));
-$('forget-key').addEventListener('click',()=>run(async()=>{const keys={...savedKeys};delete keys[provider.id];await writeKeys(keys);drafts[provider.id]='';$('api-key').value='';$('remember').checked=false;invalidate();status('APIキーを削除しました。');}));
+$('forget-key').addEventListener('click',()=>run(async()=>{const keys={...savedKeys};delete keys[provider.id];await writeKeys(keys);if(provider.usesAccountId) await writeAccountId('');drafts[provider.id]='';$('api-key').value='';$('remember').checked=false;invalidate();status('APIキーを削除しました。');}));
 $('analyze').addEventListener('click',()=>run(async()=>{
   invalidate();
   const key=$('api-key').value.trim(),accountId=$('account-id').value.trim(),source=$('source').value,version=sourceVersion,current=provider;
   const problem=current.settingsError({key,accountId});
   if(problem) {$('settings').open=true;throw new Error(problem);}
-  // Any configured or saved credential must stay out of the text sent to whichever host is selected.
-  if([key,...Object.values(drafts),...Object.values(savedKeys)].map(x=>x?.trim()).some(x=>x&&source.includes(x))) throw new Error('文章に設定済みまたは保存済みのAPIキー・トークンが含まれています。取り除いてください。');
+  // Neither the entered key nor any saved key may travel inside the text to whichever host is selected.
+  if([key,...Object.values(savedKeys)].map(x=>x?.trim()).some(x=>x&&source.includes(x))) throw new Error('文章に設定済みまたは保存済みのAPIキー・トークンが含まれています。取り除いてください。');
   if(!source.trim()) throw new Error('元の文章を入力してください。');
   controller=new AbortController();
   const signal=controller.signal;

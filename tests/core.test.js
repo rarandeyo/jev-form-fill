@@ -1,6 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { passages, tokens, acceptChoice, propose, evaluate, PROFILE } from '../core.js';
+import { passages, tokens, acceptChoice, propose, evaluate } from '../core.js';
+import { providers } from '../providers.js';
+const PROFILE = providers.typesafe;
 
 const yes = (choice, criteria, rest = {}) => ({type:'choice',choice,confidence:0.97,probabilities:Object.fromEntries(Object.keys(criteria).map(key=>[key,key===choice?0.98:0.02/(Object.keys(criteria).length-1)])),...rest});
 test('source offsets preserve Japanese, multiline and exact punctuation', () => {
@@ -123,4 +125,26 @@ test('custom thresholds reach every gate and the default stays the Jev profile',
   const lowered=await run({model:'clef-flash',thresholds:{...PROFILE.thresholds,confidence:0.5,noul:0.8}});
   assert.equal(lowered[0].status,'ready');assert.equal(lowered[0].value,false);
   assert.ok(models.length>=3 && models.every(x=>x==='clef-flash'));
+});
+test('lowered thresholds also reach passage, quoted-value and range-extraction gates',async()=>{
+  const modest=(choice,criteria)=>({type:'choice',choice,confidence:0.6,probabilities:Object.fromEntries(Object.keys(criteria).map(k=>[k,k===choice?0.9:0.1/(Object.keys(criteria).length-1)]))});
+  const lowered={...PROFILE.thresholds,confidence:0.5};
+  const field={id:'f0',kind:'text',label:'App name'};
+  const extract=async thresholds=>{
+    let calls=0;
+    return evaluate('App name: sweep-pr (or a fallback)',[field],async body=>{
+      calls++;
+      if(calls===1) return {answers:{f0:modest('p0',body.questions.f0.criteria)}};
+      if(calls===2) return {answers:{f0:modest('extract',body.questions.f0.criteria)}};
+      if(calls===3) {const c=body.questions.f0_start.criteria;const k=Object.keys(c).find(key=>c[key]==='sweep-pr');return {answers:{f0_start:modest(k,c),f0_end:modest(k,body.questions.f0_end.criteria)}};}
+      return {answers:{f0:{type:'noul',noul:0.95}}};
+    },()=>{},{model:'clef-flash',thresholds});
+  };
+  assert.equal((await extract(undefined))[0].status,'skip');
+  const rows=await extract(lowered);
+  assert.equal(rows[0].status,'ready');assert.equal(rows[0].value,'sweep-pr');
+  assert.equal(rows[0].diagnostics.find(x=>x.stage==='value').accepted,true);
+  assert.equal(rows[0].diagnostics.find(x=>x.stage==='start').accepted,true);
+  const quoted=await evaluate('App name: `sweep-pr`',[field],async body=>body.questions.f0.type==='noul'?{answers:{f0:{type:'noul',noul:0.95}}}:{answers:{f0:modest(body.questions.f0.criteria.v0?'v0':'p0',body.questions.f0.criteria)}},()=>{},{thresholds:lowered});
+  assert.equal(quoted[0].value,'sweep-pr');
 });

@@ -3,7 +3,6 @@ import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import {providers} from '../providers.js';
 import {callJev} from '../client.js';
-import {PROFILE} from '../core.js';
 const manifest=JSON.parse(await readFile(new URL('../manifest.json',import.meta.url),'utf8'));
 const accountId='0123456789abcdefABCDEF0123456789';
 const json=value=>async()=>value;
@@ -15,12 +14,12 @@ test('manifest host permissions and connect-src list exactly the provider hosts'
   for(const provider of Object.values(providers)) assert.equal(new URL(provider.url({accountId})).origin,provider.host);
 });
 test('cloudflare thresholds start equal to the Jev profile',()=>{
-  assert.deepEqual({...providers.cloudflare.thresholds},{...PROFILE.thresholds});
+  assert.deepEqual({...providers.cloudflare.thresholds},{...providers.typesafe.thresholds});
   assert.equal(providers.typesafe.model,'jev-latest');
 });
-test('cloudflare requests use the account URL, clef-flash model and the same fetch hardening',async()=>{
+test('cloudflare requests use the account URL and the same fetch hardening',async()=>{
   let seen;
-  const result=await callJev({model:'jev-latest',state:{source:'Name: Alice'},questions:{}},' cf-token ',{provider:providers.cloudflare,accountId,fetcher:async(url,options)=>{
+  const result=await callJev({model:'clef-flash',state:{source:'Name: Alice'},questions:{}},' cf-token ',{provider:providers.cloudflare,accountId,fetcher:async(url,options)=>{
     seen={url,options};
     return {ok:true,json:json({result:{model:'clef-flash',answers:{f0:{type:'noul',noul:0.95}},usage:{}},success:true,errors:[],messages:[]})};
   }});
@@ -30,10 +29,11 @@ test('cloudflare requests use the account URL, clef-flash model and the same fet
   assert.equal(JSON.parse(seen.options.body).model,'clef-flash');
   assert.deepEqual(result.answers,{f0:{type:'noul',noul:0.95}});
 });
-test('typesafe requests always carry the typesafe model',async()=>{
+test('the request body is sent as built by core, and unparsable bodies become a fixed message',async()=>{
   let body;
-  await callJev({model:'clef-flash',questions:{}},'k',{fetcher:async(url,options)=>{body=JSON.parse(options.body);return {ok:true,json:json({answers:{}})};}});
-  assert.equal(body.model,'jev-latest');
+  await callJev({model:'jev-latest',questions:{}},'k',{fetcher:async(url,options)=>{body=JSON.parse(options.body);return {ok:true,json:json({answers:{}})};}});
+  assert.deepEqual(body,{model:'jev-latest',questions:{}});
+  for(const provider of Object.values(providers)) await assert.rejects(callJev({},'t',{provider,accountId,fetcher:async()=>({ok:true,json:async()=>JSON.parse('upstream secret detail')})}),error=>error.message==='APIから有効な回答が返りませんでした。');
 });
 test('cloudflare accepts bare answers and rejects success:false or missing answers',async()=>{
   const call=value=>callJev({},'t',{provider:providers.cloudflare,accountId,fetcher:async()=>({ok:true,json:json(value)})});
@@ -45,7 +45,7 @@ test('cloudflare accepts bare answers and rejects success:false or missing answe
 });
 test('cloudflare HTTP failures map to fixed messages and never surface the upstream body',async()=>{
   const fail=(status,body)=>callJev({},'t',{provider:providers.cloudflare,accountId,fetcher:async()=>({ok:false,status,json:async()=>{if(body===undefined) throw new SyntaxError('not json');return body;}})});
-  const cases=[[401,undefined,'APIキーが無効です。'],[403,{errors:[{code:5035,message:'secret upstream detail'}]},'APIを利用する権限がありません。'],[429,{errors:[{code:3036}]},'APIの利用上限に達しました。しばらく待ってやり直してください。'],[429,{errors:[{code:3040}]},'APIが混雑しています。しばらく待ってやり直してください。'],[500,{errors:[{message:'secret upstream detail'}]},'APIエラー (500)'],[404,undefined,'APIエラー (404)']];
+  const cases=[[401,undefined,'APIキーが無効です。'],[403,{errors:[{code:5035,message:'secret upstream detail'}]},'APIを利用する権限がありません。'],[429,{errors:[{code:3036}]},'APIの1日の利用枠を使い切りました。'],[429,undefined,'APIの利用上限に達しました。しばらく待ってやり直してください。'],[400,{errors:[{code:3003}]},'APIが要求形式を受け付けませんでした。'],[429,{errors:[{code:3040}]},'APIが混雑しています。しばらく待ってやり直してください。'],[500,{errors:[{message:'secret upstream detail'}]},'APIエラー (500)'],[404,undefined,'APIエラー (404)']];
   for(const [status,body,message] of cases) await assert.rejects(fail(status,body),error=>error.message===message);
 });
 test('cloudflare settings are validated before any request; the account id is URL-encoded',async()=>{

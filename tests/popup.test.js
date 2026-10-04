@@ -5,7 +5,7 @@ import {createRequire} from 'node:module';
 import {evaluate} from '../core.js';
 import {pageCommand} from '../page.js';
 import {resolveLanguage,translator,localizeMessage} from '../i18n.js';
-import {providers,providerOf,DEFAULT_PROVIDER} from '../providers.js';
+import {providers,providerOf,validAccountId,DEFAULT_PROVIDER} from '../providers.js';
 const require=createRequire(import.meta.url);
 const {JSDOM}=require(process.env.JEV_TEST_DEPS || 'jsdom');
 const html=await readFile(new URL('../popup.html',import.meta.url),'utf8');
@@ -16,7 +16,7 @@ function popup({evaluateFn=evaluate,call=async()=>({answers:{}}),pageFn=()=>({to
   const win=dom.window;
   let saved={...initialSaved};
   win.evaluate=evaluateFn;win.pageCommand=pageCommand;win.callJev=call;win.AbortController=AbortController;
-  win.resolveLanguage=resolveLanguage;win.translator=translator;win.localizeMessage=localizeMessage;win.providers=providers;win.providerOf=providerOf;win.DEFAULT_PROVIDER=DEFAULT_PROVIDER;
+  win.resolveLanguage=resolveLanguage;win.translator=translator;win.localizeMessage=localizeMessage;win.providers=providers;win.providerOf=providerOf;win.validAccountId=validAccountId;win.DEFAULT_PROVIDER=DEFAULT_PROVIDER;
   win.chrome={i18n:{getUILanguage:()=>uiLanguage},storage:{local:{setAccessLevel:async()=>{},get:async()=>saved,set:async x=>{saved={...saved,...x};},remove:async key=>{delete saved[key];}}},tabs:{query:async()=>[{id:1,url:'https://example.com/form'}]},scripting:{executeScript:async x=>[{result:await pageFn(x.args[0])}]}};
   win.eval(script);
   return {dom,win,$:id=>win.document.getElementById(id),saved:()=>saved};
@@ -153,4 +153,28 @@ test('cloudflare needs a token and a 32-character account id; saved keys of eith
   assert.equal(calls,0);
   ui.$('remember').checked=true;ui.$('save-key').click();await waitFor(()=>!ui.$('save-key').disabled);
   assert.deepEqual(plain(ui.saved().keys),{typesafe:'ts-secret-key',cloudflare:'cf-token'});assert.equal(ui.saved().accountId,cfAccount);
+});
+test('editing the account id discards proposals; deleting the cloudflare token also deletes the saved account id',async()=>{
+  const ui=popup({initialSaved:{keys:{cloudflare:'cf-token'},provider:'cloudflare',accountId:cfAccount},evaluateFn:async()=>[{id:'f0',field:{label:'Active',kind:'checkbox'},status:'ready',value:false,display:'オフ',reason:'元の文章に一致する候補です。'}]});
+  await waitFor(()=>ui.$('target').textContent.includes('example.com'));
+  ui.$('source').value='Active: off';ui.$('analyze').click();await waitFor(()=>!ui.$('analyze').disabled);
+  assert.equal(ui.$('apply').disabled,false);
+  ui.$('account-id').value='ffffffffffffffffffffffffffffffff';ui.$('account-id').dispatchEvent(new ui.win.Event('input'));
+  assert.equal(ui.$('apply').disabled,true);assert.equal(ui.$('results').hidden,true);
+  ui.$('remember').checked=false;ui.$('save-key').click();await waitFor(()=>!ui.$('save-key').disabled);
+  assert.equal(ui.saved().keys,undefined);assert.equal(ui.saved().accountId,undefined);
+  ui.$('api-key').value='cf-token';ui.$('remember').checked=true;ui.$('save-key').click();await waitFor(()=>!ui.$('save-key').disabled);
+  assert.equal(ui.saved().accountId,'ffffffffffffffffffffffffffffffff');
+  ui.$('forget-key').click();await waitFor(()=>!ui.$('forget-key').disabled);
+  assert.deepEqual(plain(ui.saved()),{provider:'cloudflare'});
+});
+test('a storage failure while switching provider still swaps the key field, so the old key is never sent to the new host',async()=>{
+  const calls=[];
+  const ui=popup({initialSaved:{keys:{typesafe:'ts-key'},accountId:cfAccount},evaluateFn:async(source,fields,request)=>{await request({});return [];},call:async(body,key,opts)=>{calls.push([key,opts.provider.id]);return {answers:{}};}});
+  await waitFor(()=>ui.$('target').textContent.includes('example.com'));
+  ui.win.chrome.storage.local.set=async()=>{throw new Error('quota');};
+  await choose(ui,'cloudflare');
+  assert.equal(ui.$('api-key').value,'');
+  ui.$('source').value='Active: off';ui.$('analyze').click();await waitFor(()=>!ui.$('analyze').disabled);
+  assert.deepEqual(calls,[]);assert.match(ui.$('status').textContent,/APIトークンを設定/);
 });
