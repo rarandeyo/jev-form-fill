@@ -7,7 +7,7 @@
 
 A Chrome extension that matches your clipboard text to form fields with **TypeSafe Jev**. Review the proposed values, choose which fields to change, and fill them in page order. Fields without a supported value stay unchanged. Explicit blanks, checkboxes, radio buttons, and selects are supported. Undo restores the last fill. You submit the form yourself.
 
-**Preview v0.1.5 · Chrome 116+ · Bring your TypeSafe API key.** Creating proposals sends your source text and field metadata to TypeSafe; API charges may apply. Read the [privacy notes](PRIVACY.md).
+**Preview v0.2.0 · Chrome 116+ · Bring your TypeSafe API key, or a Cloudflare Workers AI API token and Account ID.** Creating proposals sends your source text and field metadata to the provider you select; API charges may apply. Read the [privacy notes](PRIVACY.md).
 
 ## See it in action
 
@@ -41,14 +41,14 @@ No build step or Node.js is required to use the extension.
 4. Select the folder containing `manifest.json`.
 5. Open **Jev Form Fill** from Chrome’s extensions menu. Pin it if you use it often.
 
-A packaged extension ZIP, when available, contains a `jev-form-fill` folder; load that folder. To update, replace the contents of your loaded folder and reload the extension in `chrome://extensions`.
+A packaged extension ZIP, when available, contains a `jev-form-fill` folder; load that folder. From the source repository, `npm run package` builds `dist/jev-form-fill.zip`; extract it and load the `jev-form-fill` folder inside. To update, replace the contents of your loaded folder and reload the extension in `chrome://extensions`.
 
 ## Use
 
 1. Copy your notes and open the target page.
 2. Open Jev Form Fill and click **Read clipboard**, or paste into **Source text**.
-3. Enter your key under **API key settings**. The key stays in this popup unless you explicitly choose to save it in this browser.
-4. Click **Create proposals with TypeSafe**. Keep the popup open while it works.
+3. Under **Connection settings**, choose the model provider (TypeSafe or Cloudflare Workers AI) and enter its key. Cloudflare Workers AI needs an API token and your 32-character Account ID. Keys stay in this popup unless you explicitly choose to save them in this browser.
+4. Click **Create proposals with TypeSafe** (or **Create proposals with Cloudflare Workers AI**). Keep the popup open while it works.
 5. Review the values, uncheck fields you want to keep, and click **Fill selected fields**. Selected proposals can replace existing values.
 6. Check the result in the popup and on the page, then submit the form yourself. **Undo last fill** restores the most recent write while preserving later manual edits.
 
@@ -74,9 +74,11 @@ Readback checks run after writes and again 650ms after the entire fill. There is
 
 Requests go directly to `https://api.typesafe.ai/v1/systemone`, using `jev-latest`. The source text, field names, headings, types, and options are sent. Existing field values, cookies, the page URL, and the full page body are not included in analysis requests. Names/headings themselves may contain personal information. There is no analytics or application backend.
 
+With Cloudflare Workers AI selected, requests go to `https://api.cloudflare.com/client/v4/accounts/{Account ID}/ai/run/@cf/cloudflare/clef-flash` using Clef (`clef-flash`), with the same content. Keys are kept per provider, and only the selected provider’s key is sent.
+
 Fields are analyzed in batches of eight, with 1–4 API requests per batch. HTTP failures are not retried automatically. Saved API keys use `chrome.storage.local`, not Chrome sync or an OS credential vault. See [PRIVACY.md](PRIVACY.md) for details.
 
-Permissions: `activeTab`, `scripting`, `storage`, `clipboardRead`, and the TypeSafe API host. Form input events may cause the destination site to transmit values before you submit.
+Permissions: `activeTab`, `scripting`, `storage`, `clipboardRead`, and the TypeSafe and Cloudflare API hosts. Form input events may cause the destination site to transmit values before you submit.
 
 ## Try the demo and run tests
 
@@ -105,6 +107,6 @@ The ZIP includes runtime files, bilingual installation/privacy notes, screenshot
 
 Jev selects candidate source passages and exact quoted values. A whole-source Noul check must support a proposed value before it becomes fillable. Unquoted values use start/end token choices to slice the original text. Explicit blanks and OFF instructions are checked separately from missing information. Page writes use native setters and input/change events, then readback. All form submission stays under your control.
 
-[TypeSafe API](https://docs.typesafe.ai/api) · [Chrome activeTab](https://developer.chrome.com/docs/extensions/develop/concepts/activeTab) · [Chrome scripting](https://developer.chrome.com/docs/extensions/reference/api/scripting)
+[TypeSafe API](https://docs.typesafe.ai/api) · [Cloudflare Workers AI](https://developers.cloudflare.com/workers-ai/) · [Chrome activeTab](https://developer.chrome.com/docs/extensions/develop/concepts/activeTab) · [Chrome scripting](https://developer.chrome.com/docs/extensions/reference/api/scripting)
 
 MIT License. An independent project, not an official TypeSafe product.

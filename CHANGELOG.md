@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.0
+
+- Cloudflare Workers AI (Clef, `clef-flash`) as a second model provider, selectable next to TypeSafe in the popup settings.
+- API keys are stored per provider; a saved legacy TypeSafe key moves to the new storage on first open.
+- Switching provider discards existing proposals. Diagnostics record the provider and the decision thresholds used.
+- Clef currently uses the same decision thresholds as Jev.
+
 ## 0.1.5
 
 - English and Japanese UI, following the browser language with an explicit override.

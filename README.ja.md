@@ -4,7 +4,7 @@
 
 クリップボードの文章から、現在のページのフォームに入力候補を作るChrome拡張です。項目名・見出し・選択肢を元の文章に対応付け、候補を確認してからDOM順に入力します。文章に書かれていない値は見送ります。明示された空欄やオフにも対応し、直前の入力を戻せます。フォームは自動送信しません。
 
-**試用版 v0.1.5。TypeSafeのAPIキーが必要です。候補の作成時に文章とフォーム情報をTypeSafeへ送信し、API利用料が発生する場合があります。** [データの扱い](PRIVACY.ja.md)を確認してください。
+**試用版 v0.2.0。TypeSafeのAPIキー、またはCloudflare Workers AIのAPIトークンとAccount IDが必要です。候補の作成時に文章とフォーム情報を選んだ接続先へ送信し、API利用料が発生する場合があります。** [データの扱い](PRIVACY.ja.md)を確認してください。
 
 ## 利用イメージ
 
@@ -25,14 +25,16 @@ Chrome 116以上が対象です。ビルドやNode.jsのインストールは不
 3. 「パッケージ化されていない拡張機能を読み込む」を押し、`manifest.json` があるフォルダを選びます。
 4. ツールバーの拡張機能メニューから「Jev Form Fill」を開きます。必要なら固定します。
 
+ソースリポジトリから配布用ZIPを作る場合は、`npm run package` で作った `dist/jev-form-fill.zip` を展開し、中の `jev-form-fill` フォルダを手順3で選びます。
+
 更新時は読み込み元フォルダの内容を更新し、`chrome://extensions` で拡張を再読み込みしてください。
 
 ## 使い方
 
 1. 設定値やメモをコピーし、入力先のページを開きます。
 2. 拡張を開き、「クリップボードから読む」を押します。文章欄への手動貼り付けもできます。
-3. 「APIキーの設定」にTypeSafe APIキーを入力します。
-4. 「TypeSafeへ送って候補を作る」を押します。処理中はポップアップを開いたままにしてください。
+3. 「接続先とキーの設定」で接続先（TypeSafe または Cloudflare Workers AI）を選び、キーを入力します。Cloudflare Workers AIではAPIトークンと32文字のAccount IDを入力します。
+4. 「TypeSafeへ送って候補を作る」（Cloudflare Workers AIを選んだ場合は「Cloudflare Workers AIへ送って候補を作る」）を押します。処理中はポップアップを開いたままにしてください。
 5. 候補を確認し、変更したくない項目のチェックを外して「選んだ項目に入力」を押します。既存の値も、選んで適用すれば書き換わります。
 6. 適用結果とページ側の値を確認し、フォームの送信はご自身で行います。「直前の入力を戻す」で最後の書き換えを取り消せます。
 
@@ -59,9 +61,11 @@ Chrome 116以上が対象です。ビルドやNode.jsのインストールは不
 
 解析先はTypeSafeの `https://api.typesafe.ai/v1/systemone`、モデルは `jev-latest` です。元の文章と対象項目の名前・見出し・型・選択肢を送ります。既存の入力値、Cookie、ページURL、ページ本文全体は解析要求に含めません。項目名・見出しに含まれる個人情報は送られます。アクセス解析はありません。
 
+接続先にCloudflare Workers AIを選んだ場合は、送信先が `https://api.cloudflare.com/client/v4/accounts/{Account ID}/ai/run/@cf/cloudflare/clef-flash`、モデルがClef（`clef-flash`）になります。送る内容はTypeSafeの場合と同じです。キー・トークンは接続先ごとに分けて保持し、選んだ接続先のものだけを送ります。
+
 8項目ずつ分析し、1バッチあたり1〜4回のAPI要求を行います。HTTPエラーの自動再試行はしません。APIキーは通常、開いているポップアップ内だけに保持します。保存を明示した場合だけ `chrome.storage.local` に保存します。詳細は [PRIVACY.ja.md](PRIVACY.ja.md) を参照してください。
 
-権限は `activeTab`、`scripting`、`storage`、`clipboardRead` とTypeSafe APIホストのみです。
+権限は `activeTab`、`scripting`、`storage`、`clipboardRead` と、TypeSafe・CloudflareのAPIホストのみです。
 
 ## 試験と開発
 
@@ -96,6 +100,7 @@ ZIPには拡張の実行ファイル、英語・日本語のREADMEとプライ�
 根拠の行と完全な引用値を候補として選び、全文に照らすNoul確認を経て入力可能にします。引用されていない値は始点・終点から元文字列を切り出します。空欄・オフは、情報欠落とは別の明示指示として確認します。しきい値はアプリの暫定方針で、正確さの実測値ではありません。
 
 - [TypeSafe API](https://docs.typesafe.ai/api)、[Choice](https://docs.typesafe.ai/primitives/choice)
+- [Cloudflare Workers AI](https://developers.cloudflare.com/workers-ai/)
 - [Chrome activeTab](https://developer.chrome.com/docs/extensions/develop/concepts/activeTab)、[scripting](https://developer.chrome.com/docs/extensions/reference/api/scripting)
 - [Chromeの拡張読み込み](https://developer.chrome.com/docs/extensions/get-started/tutorial/hello-world#load-unpacked)
 

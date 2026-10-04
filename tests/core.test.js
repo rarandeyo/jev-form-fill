@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { passages, tokens, acceptChoice, propose, evaluate } from '../core.js';
+import { passages, tokens, acceptChoice, propose, evaluate, PROFILE } from '../core.js';
 
 const yes = (choice, criteria, rest = {}) => ({type:'choice',choice,confidence:0.97,probabilities:Object.fromEntries(Object.keys(criteria).map(key=>[key,key===choice?0.98:0.02/(Object.keys(criteria).length-1)])),...rest});
 test('source offsets preserve Japanese, multiline and exact punctuation', () => {
@@ -107,4 +107,20 @@ test('skipped rows retain the rejected stage and probabilities for diagnosis',as
 test('bounds are enforced rather than silently truncating user instructions', () => {
   assert.throws(() => passages('x'.repeat(12001)),/12,000/);
   assert.throws(() => passages(Array.from({length:121},(_,i)=>`line ${i}`).join('\n')),/120/);
+});
+test('custom thresholds reach every gate and the default stays the Jev profile',async()=>{
+  const criteria={skip:'unknown',on:'on',off:'off'};
+  const modest={type:'choice',choice:'off',confidence:0.6,probabilities:{skip:0.05,on:0.05,off:0.9}};
+  assert.equal(acceptChoice(modest,criteria),null);
+  assert.equal(acceptChoice(modest,criteria,{...PROFILE.thresholds,confidence:0.5}),'off');
+  const field={id:'f0',kind:'checkbox',label:'Active'};
+  const models=[];
+  const run=options=>evaluate('Active: off',[field],async body=>{models.push(body.model);return body.questions.f0.type==='noul'?{answers:{f0:{type:'noul',noul:0.85}}}:{answers:{f0:{...modest,probabilities:Object.fromEntries(Object.keys(body.questions.f0.criteria).map(k=>[k,k==='off'?0.9:0.05]))}}};},()=>{},options);
+  assert.equal((await run())[0].status,'skip');
+  assert.deepEqual(models,['jev-latest']);
+  models.length=0;
+  assert.equal((await run({model:'clef-flash',thresholds:{...PROFILE.thresholds,confidence:0.5}}))[0].status,'skip');
+  const lowered=await run({model:'clef-flash',thresholds:{...PROFILE.thresholds,confidence:0.5,noul:0.8}});
+  assert.equal(lowered[0].status,'ready');assert.equal(lowered[0].value,false);
+  assert.ok(models.length>=3 && models.every(x=>x==='clef-flash'));
 });
