@@ -29,7 +29,7 @@ function readChoice(answer,criteria) {
   const sum=Object.values(probs).reduce((a,b)=>a+b,0);
   return probability(p) && p>runner && Math.abs(sum-1)<=1e-6 ? {choice:answer.choice,confidence:answer.confidence,p,runner} : null;
 }
-// Internal stages must pass thresholds explicitly; a missing one throws instead of silently using the default.
+// Internal value gates pass thresholds explicitly, so a missing one throws on any well-formed answer instead of silently using the default.
 function passes(result,thresholds) {
   return result&&result.confidence>=thresholds.confidence&&result.p>=thresholds.p&&result.p-result.runner>=thresholds.margin?result.choice:null;
 }

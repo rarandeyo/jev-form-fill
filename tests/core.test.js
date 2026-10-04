@@ -126,7 +126,7 @@ test('custom thresholds reach every gate and the default stays the Jev profile',
   assert.equal(lowered[0].status,'ready');assert.equal(lowered[0].value,false);
   assert.ok(models.length>=3 && models.every(x=>x==='clef-flash'));
 });
-test('lowered thresholds also reach passage, quoted-value and range-extraction gates',async()=>{
+test('lowered thresholds reach value and range-extraction gates, and noul reaches quoted values',async()=>{
   const modest=(choice,criteria)=>({type:'choice',choice,confidence:0.6,probabilities:Object.fromEntries(Object.keys(criteria).map(k=>[k,k===choice?0.9:0.1/(Object.keys(criteria).length-1)]))});
   const lowered={...PROFILE.thresholds,confidence:0.5};
   const field={id:'f0',kind:'text',label:'App name'};
@@ -145,6 +145,7 @@ test('lowered thresholds also reach passage, quoted-value and range-extraction g
   assert.equal(rows[0].status,'ready');assert.equal(rows[0].value,'sweep-pr');
   assert.equal(rows[0].diagnostics.find(x=>x.stage==='value').accepted,true);
   assert.equal(rows[0].diagnostics.find(x=>x.stage==='start').accepted,true);
-  const quoted=await evaluate('App name: `sweep-pr`',[field],async body=>body.questions.f0.type==='noul'?{answers:{f0:{type:'noul',noul:0.95}}}:{answers:{f0:modest(body.questions.f0.criteria.v0?'v0':'p0',body.questions.f0.criteria)}},()=>{},{thresholds:lowered});
-  assert.equal(quoted[0].value,'sweep-pr');
+  const quoted=thresholds=>evaluate('App name: `sweep-pr`',[field],async body=>body.questions.f0.type==='noul'?{answers:{f0:{type:'noul',noul:0.85}}}:{answers:{f0:modest(body.questions.f0.criteria.v0?'v0':'p0',body.questions.f0.criteria)}},()=>{},{thresholds});
+  assert.equal((await quoted(undefined))[0].status,'skip');
+  assert.equal((await quoted({...lowered,noul:0.8}))[0].value,'sweep-pr');
 });

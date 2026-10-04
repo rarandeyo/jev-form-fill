@@ -178,3 +178,10 @@ test('a storage failure while switching provider still swaps the key field, so t
   ui.$('source').value='Active: off';ui.$('analyze').click();await waitFor(()=>!ui.$('analyze').disabled);
   assert.deepEqual(calls,[]);assert.match(ui.$('status').textContent,/APIトークンを設定/);
 });
+test('saving a cloudflare token with an invalid account id saves nothing',async()=>{
+  const ui=popup({initialSaved:{provider:'cloudflare',accountId:cfAccount}});
+  await waitFor(()=>ui.$('target').textContent.includes('example.com'));
+  ui.$('api-key').value='cf-token';ui.$('account-id').value='short';ui.$('remember').checked=true;ui.$('save-key').click();await waitFor(()=>!ui.$('save-key').disabled);
+  assert.match(ui.$('status').textContent,/Account ID/);
+  assert.deepEqual(plain(ui.saved()),{provider:'cloudflare',accountId:cfAccount});
+});

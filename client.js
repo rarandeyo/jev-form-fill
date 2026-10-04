@@ -1,4 +1,4 @@
-import {providers} from './providers.js';
+import {providers,malformed} from './providers.js';
 export async function callJev(body,key,{signal,fetcher=fetch,provider=providers.typesafe,accountId}={}) {
   const problem=provider.settingsError({key,accountId});
   if (problem) throw new Error(problem);
@@ -13,6 +13,7 @@ export async function callJev(body,key,{signal,fetcher=fetch,provider=providers.
     throw new Error(provider.error(response.status,detail) || `APIエラー (${response.status})`);
   }
   let json;
-  try{json=await response.json();}catch{throw new Error('APIから有効な回答が返りませんでした。');}
+  // Only parse failures become the fixed message (their text can quote the body); abort and timeout keep their names.
+  try{json=await response.json();}catch(error){throw error instanceof SyntaxError?new Error(malformed):error;}
   return provider.unwrap(json);
 }

@@ -82,6 +82,8 @@ async function saveKey() {
   drafts[provider.id]=key;
   const keys={...savedKeys};
   const remember=$('remember').checked && key;
+  const problem=remember?provider.settingsError({key,accountId}):null;
+  if(problem) {$('settings').open=true;throw new Error(problem);}
   if(remember) keys[provider.id]=key;else delete keys[provider.id];
   await writeKeys(keys);
   if(provider.usesAccountId) await writeAccountId(remember?accountId:'');

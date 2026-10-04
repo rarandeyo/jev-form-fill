@@ -2,7 +2,7 @@
 const statusMessages={401:'APIキーが無効です。',403:'APIを利用する権限がありません。',422:'APIが要求形式を受け付けませんでした。',429:'APIの利用上限に達しました。しばらく待ってやり直してください。',529:'APIが混雑しています。しばらく待ってやり直してください。'};
 // Thresholds are application policy for each model's answers, not measured accuracy.
 const jevThresholds=Object.freeze({confidence:0.75,p:0.85,margin:0.2,noul:0.9});
-const malformed='APIから有効な回答が返りませんでした。';
+export const malformed='APIから有効な回答が返りませんでした。';
 const answersOf=result=>result && typeof result.answers==='object' && result.answers!==null && !Array.isArray(result.answers) ? result : null;
 const ACCOUNT_ID=/^[A-Za-z0-9]{32}$/;
 export const providers=Object.freeze({

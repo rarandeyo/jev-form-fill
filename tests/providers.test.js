@@ -48,6 +48,9 @@ test('cloudflare HTTP failures map to fixed messages and never surface the upstr
   const cases=[[401,undefined,'APIキーが無効です。'],[403,{errors:[{code:5035,message:'secret upstream detail'}]},'APIを利用する権限がありません。'],[429,{errors:[{code:3036}]},'APIの1日の利用枠を使い切りました。'],[429,undefined,'APIの利用上限に達しました。しばらく待ってやり直してください。'],[400,{errors:[{code:3003}]},'APIが要求形式を受け付けませんでした。'],[429,{errors:[{code:3040}]},'APIが混雑しています。しばらく待ってやり直してください。'],[500,{errors:[{message:'secret upstream detail'}]},'APIエラー (500)'],[404,undefined,'APIエラー (404)']];
   for(const [status,body,message] of cases) await assert.rejects(fail(status,body),error=>error.message===message);
 });
+test('abort and timeout while reading the body keep their error names',async()=>{
+  for(const name of ['AbortError','TimeoutError']) await assert.rejects(callJev({},'t',{fetcher:async()=>({ok:true,json:async()=>{throw new DOMException('stopped',name);}})}),error=>error.name===name);
+});
 test('cloudflare settings are validated before any request; the account id is URL-encoded',async()=>{
   for(const [key,id,pattern] of [['','x'.repeat(32),/APIトークン/],['t','',/Account ID/],['t','../'+'a'.repeat(29),/Account ID/],['t','a'.repeat(31),/Account ID/],['t','a'.repeat(33),/Account ID/]]) {
     let count=0;
