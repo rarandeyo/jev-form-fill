@@ -6,6 +6,7 @@ These files are not part of the extension ZIP. Both scripts call Cloudflare Work
 
 ```sh
 node dev/measure-thresholds.mjs 2
+node dev/measure-thresholds.mjs 1 japan
 ```
 
 Runs the tuning fixtures defined in `dev/forms.mjs` through Clef and prints how many required changes and wrong fills each confidence value gives. Raw decisions go to the Git-ignored `.local/thresholds/`. Results and limits are in [docs/validation.md](../docs/validation.md).
@@ -44,6 +45,13 @@ EXT=<extension id printed by launch.mjs>
 dev/e2e/run-fixture.zsh 9343 $EXT demo-form http://127.0.0.1:8765/demo-form.html "$WORK/out" 5
 dev/e2e/run-fixture.zsh 9343 $EXT contact-ja http://127.0.0.1:8765/contact-form-ja.html "$WORK/out" 3
 dev/e2e/run-fixture.zsh 9343 $EXT lab http://127.0.0.1:8766/ "$WORK/out" 25
+```
+
+`contact-ja-nonl` is contact-ja without the final newline, the case Clef's confidence of 0.70 changes (the email is filled). The Japanese and English observation fixtures in the `japan` set of `dev/forms.mjs` (for example `jp-list` or `en-list` on `jp-application-form.html` / `en-signup-form.html`) run the same way; their minimums are the Node results in docs/validation.md, and en-list is expected to exit 1 because of the recorded postal-code wrong fill:
+
+```sh
+dev/e2e/run-fixture.zsh 9343 $EXT contact-ja-nonl http://127.0.0.1:8765/contact-form-ja.html "$WORK/out" 3
+dev/e2e/run-fixture.zsh 9343 $EXT jp-quoted http://127.0.0.1:8765/jp-application-form.html "$WORK/out" 14
 ```
 
 Each run writes the initial, filled and undone field states, popup messages, diagnostics, a grade and two screenshots to the output directory. Finally stop the three servers (Ctrl-C), run `agent-browser close`, and delete `$WORK`.

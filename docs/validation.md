@@ -53,15 +53,47 @@ The `npm run package` ZIP, with `http://127.0.0.1/*` added to a test-only copy o
 | --- | --- | ---: | --- |
 | demo-form | 5 of 6 required; telephone left unchanged; newsletter OFF rejected by the whole-source check | 0 | all 5 restored |
 | contact-ja | 3 of 5 required, plus prefecture 東京都; 氏名 and フリガナ skipped | 0 | all restored |
+| contact-ja-nonl (no final newline) | 3 of 5 required, plus prefecture 東京都; the email is filled only because of 0.70 | 0 | all restored |
 | lab | normal 25/28, protected 18/18, stress 0/8 (lab grader) | 0 | 25 restored; the later page edit to Delayed alias kept |
 
-No decision in these browser runs depended on the lowered value: every accepted row cleared 0.75. The one case 0.70 changes (the contact form without a final newline) was measured only in Node. Lab misses were 参加方法, the explicit blank for Middle name, and newsletter OFF. Stress cases include the misleading notification email that TypeSafe filled in the 0.1.3 trial.
+Apart from contact-ja-nonl, whose email range end scored 0.7411 as in Node, every accepted row cleared 0.75. Lab misses were 参加方法, the explicit blank for Middle name, and newsletter OFF. Stress cases include the misleading notification email that TypeSafe filled in the 0.1.3 trial.
 
 The browser run replaces `chrome.tabs.query` in the popup tab and grants host access to the local server, so it does not test the production permission path (toolbar click granting activeTab and the popup finding the page's window).
 
 ### Limits
 
 The value was fitted on three small fictional forms (18 required changes) and checked on one lab form. It is not a calibrated probability or an accuracy figure. Clef answered identically across runs, so repeated runs add no independent evidence. The replay assumes an answer does not depend on which other questions share a request; the browser runs gave the same fills as the replay for demo-form and contact-ja.
+
+## Japanese application forms and English forms with Japanese text (Clef)
+
+As of 2026-10-05, version 0.2.0, Cloudflare Workers AI at the thresholds above. These fixtures observe behavior; they did not change any threshold. Forms: `examples/jp-application-form.html` (family/given name, katakana, hiragana, a 3+4 postal code, prefecture select, city/street/building, year/month/day selects, a 3-part phone number, gender and contact radios, half-width and full-width fields, consent checkbox, notes) and `examples/en-signup-form.html` (first/last/full name, email, phone, company, address lines, city, state, postal code, country select). Expected values and known limits are in `dev/forms.mjs`; the Node run is `node dev/measure-thresholds.mjs 1 japan`. Clef returned the same answers on a repeated run.
+
+“Required” counts fields whose value the source determines and the extension can write. Known limits are fields the source determines but the extension cannot write, because the value is not an exact source substring it can isolate (Japanese runs such as 東京都渋谷区神南1-2-3 form one token, and 150-0041 or 090-1234-5678 cannot be split into boxes), needs width conversion or romanization, or is not uniquely determined for an English address form. Leaving a known-limit field unchanged counts as correct.
+
+| Source (file) | Form | Required filled | Wrong fills | Known limits left unchanged |
+| --- | --- | ---: | ---: | --- |
+| item: value list (`jp-source-list.txt`) | Japanese | 6/16 | 0 | postal code ×2, phone ×3, city, street |
+| one paragraph (`jp-source-prose.txt`) | Japanese | 5/8 | 0 | family/given name, postal code, phone, city, street |
+| full-width digits and symbols (`jp-source-zenkaku.txt`) | Japanese | 2/8 | 0 | postal code, phone, city, street, full-width email |
+| Japanese era date 平成2年 (`jp-source-wareki.txt`) | Japanese | 4/8 | 0 | phone ×3 |
+| each value in 「」 (`jp-source-quoted.txt`) | Japanese | 14/23 | 0 | none (the source is split per box) |
+| Japanese item: value list (`en-source-ja-list.txt`) | English | 1/6 | **1** | first/last name, city, state, address lines |
+| Japanese paragraph (`en-source-ja-prose.txt`) | English | 1/4 | 0 | names, company, city, state, address lines |
+| romanized values in 「」 with Japanese item names (`en-source-ja-quoted.txt`) | English | 10/12 | 0 | none |
+
+The browser run (headless Chrome, `dev/e2e/`) of jp-list, jp-prose, jp-quoted, en-list, en-prose and en-quoted produced the same fills as Node, and Undo restored every changed field. The first browser attempt of jp-quoted ended with “The API did not respond in time” and changed nothing; the second attempt succeeded.
+
+What was filled and what stopped:
+
+- Closed choices were filled most often. Birth month and day were filled from all four unquoted Japanese sources, the contact radio and consent wherever the source stated them, and the prefecture from the list and the paragraph (the full-width source stopped at the whole-source check, 0.88). Country was filled only from the Japanese paragraph; the whole-source check stopped it at 0.85 (en-list) and 0.68 (en-quoted). The birth year was filled from the paragraph (1990年) but not from the list, the full-width source or the era date; 平成2年 was not converted.
+- Unquoted text values go through a token-range step, and Clef's answers there were weak: most of 姓, セイ, email, company, notes and building in the list source stopped at the range start/end or value step (confidence 0.18–0.64, p 0.49–0.84).
+- Quoting each value with 「」 sends it as a whole candidate. jp-quoted then filled 14 of 23, including the split postal code and phone boxes, city and street. The rest stopped at the whole-source check (0.79–0.90: 姓, メイ, ふりがな, postal code back half, last phone box, birth month, gender) or at the choice gates (birth year, day).
+- English form: no Japanese name was put into First name, Last name or Full name in any run; those fields were skipped. Romanized, quoted values (en-quoted) filled 10 of 12; First name (0.88) and Country (0.68) stopped at the whole-source check.
+- Three decisions here were accepted only because Clef's confidence is 0.70 rather than 0.75: jp-zenkaku birth day (0.7375), jp-wareki セイ (0.7023) and en-list phone (0.7301). All three were correct.
+
+**Wrong fill.** In en-list the ZIP / Postal code field received `〒150-0041` from `住所：〒150-0041 東京都…`. The range start chose the 〒 token (confidence 0.77, p 0.90), the end chose 150-0041 (0.81, 0.92) and the whole-source check accepted it (0.94), so every gate passed above the Jev thresholds as well. Reproduce with `node dev/measure-thresholds.mjs 1 en-list` or `dev/e2e/run-fixture.zsh … en-list …`; the diagnostics are in the popup's decision details. Possible fixes, not applied: tell the range question to exclude markers such as 〒 and TEL as it already excludes labels and quotes; drop leading symbol-only tokens (Unicode category So) from an extracted range; or include the field's `autocomplete`/`inputmode` in the field description so verification can reject a value that does not fit a postal code.
+
+Limits: one fictional Japanese form and one English form, eight sources, single runs (answers were identical on repetition). The expected tables are the author's reading of each source; whether 東京都 should fill a prefecture from an address, or whether `〒150-0041` is acceptable in a postal-code field, are judgment calls recorded in `dev/forms.mjs`.
 
 ## Automated checks
 

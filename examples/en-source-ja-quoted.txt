@@ -1,0 +1,12 @@
+名（First name）：「Taro」
+姓（Last name）：「Yamada」
+氏名（Full name）：「Taro Yamada」
+メール：「taro.yamada@example.jp」
+電話：「+81-90-1234-5678」
+会社：「Minamo Inc.」
+住所1（Address line 1）：「1-2-3 Jinnan」
+住所2（Address line 2）：「Minamo Bldg. 4F」
+市区町村（City）：「Shibuya-ku」
+都道府県（State）：「Tokyo」
+郵便番号：「150-0041」
+国：日本
