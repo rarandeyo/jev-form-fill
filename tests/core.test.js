@@ -164,3 +164,23 @@ test('a leading symbol token such as 〒 is dropped from an extracted range, and
   const only=await run('〒','〒');
   assert.equal(only.rows[0].status,'skip');assert.deepEqual(only.verified,[]);
 });
+test('markers with a variation selector are dropped, quoted values lose them too, and ㈱ or № stay in the value',async()=>{
+  const field={id:'f0',kind:'text',label:'Value'};
+  const range=(source,first,last)=>evaluate(source,[field],async body=>{
+    const q=body.questions;
+    if(q.f0?.type==='noul') return {answers:{f0:{type:'noul',noul:0.95}}};
+    if(q.f0_start){const pick=text=>Object.keys(q.f0_start.criteria).find(k=>q.f0_start.criteria[k]===text);return {answers:{f0_start:yes(pick(first),q.f0_start.criteria),f0_end:yes(pick(last),q.f0_end.criteria)}};}
+    return {answers:{f0:yes(q.f0.criteria.p0?'p0':'extract',q.f0.criteria)}};
+  });
+  assert.equal((await range('電話：☎️ 03-1234-5678','☎','03-1234-5678'))[0].value,'03-1234-5678');
+  assert.equal((await range('会社名：㈱みなも','㈱','みなも'))[0].value,'㈱みなも');
+  assert.equal((await range('番号：№123','№','123'))[0].value,'№123');
+  const quoted=source=>evaluate(source,[field],async body=>{
+    const q=body.questions;
+    if(q.f0?.type==='noul') return {answers:{f0:{type:'noul',noul:0.95}}};
+    return {answers:{f0:yes(q.f0.criteria.p0?'p0':'v0',q.f0.criteria)}};
+  });
+  assert.equal((await quoted('郵便番号：「〒150-0041」'))[0].value,'150-0041');
+  assert.equal((await quoted('郵便番号：「〒」'))[0].status,'skip');
+  assert.equal((await quoted('会社名：「㈱みなも」'))[0].value,'㈱みなも');
+});

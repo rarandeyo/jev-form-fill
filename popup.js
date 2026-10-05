@@ -1,7 +1,7 @@
 import {evaluate} from './core.js';
 import {pageCommand} from './page.js';
 import {callJev} from './client.js';
-import {providers,providerOf,profileOf,validAccountId,DEFAULT_PROVIDER} from './providers.js';
+import {providers,providerOf,modelOf,profileOf,validAccountId,DEFAULT_PROVIDER} from './providers.js';
 import {resolveLanguage,translator,localizeMessage} from './i18n.js';
 const $=id=>document.getElementById(id);
 let tabId,plan=null,rows=[],controller=null,busy=false,sourceVersion=0,provider=providers[DEFAULT_PROVIDER],usedProfile=null,savedKeys={},drafts={},chosenModels={};
@@ -24,7 +24,7 @@ function showProvider() {
   $('api-key').value=drafts[provider.id]||'';$('remember').checked=Boolean(savedKeys[provider.id]);
   const models=Object.values(provider.models);$('model-field').hidden=models.length<2;
   $('model').replaceChildren(...models.map(item=>{const option=document.createElement('option');option.value=item.id;option.textContent=item.name;return option;}));
-  $('model').value=profileOf(provider.id,chosenModels[provider.id]).modelId;localizeUI();
+  $('model').value=modelOf(provider,chosenModels[provider.id]).id;localizeUI();
 }
 const validModels=models=>Object.fromEntries(Object.entries(models&&typeof models==='object'?models:{}).filter(([id,model])=>Object.hasOwn(providers,id)&&typeof model==='string'&&Object.hasOwn(providers[id].models,model)));
 const validKeys=keys=>Object.fromEntries(Object.entries(keys&&typeof keys==='object'?keys:{}).filter(([id,key])=>Object.hasOwn(providers,id)&&typeof key==='string'&&key));
@@ -92,8 +92,9 @@ $('provider').addEventListener('change',()=>run(async()=>{
 }));
 // The model is a preference like the provider: saved on change, one write, and proposals from the other model are dropped.
 $('model').addEventListener('change',()=>run(async()=>{
-  chosenModels={...chosenModels,[provider.id]:profileOf(provider.id,$('model').value).modelId};
-  invalidate();showProvider();
+  // Only the model changes; the key and save choice being typed stay as they are.
+  chosenModels={...chosenModels,[provider.id]:modelOf(provider,$('model').value).id};
+  invalidate();
   await chrome.storage.local.set({models:chosenModels});
 }));
 $('account-id').addEventListener('input',invalidate);

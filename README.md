@@ -81,7 +81,7 @@ With Cloudflare Workers AI selected, requests go to `https://api.cloudflare.com/
 | Clef (`clef`, default) | $0.240 per M input tokens | fills more fields; slower |
 | Clef Flash (`clef-flash`) | $0.090 per M input tokens | fills fewer fields; faster and cheaper |
 
-A 20-field form used about 25,000 input tokens in those tests. Workers AI includes 10,000 Neurons per day at no charge, which covers roughly 450,000 Clef input tokens or 1,200,000 Clef Flash input tokens. Measured results are in [docs/validation.md](https://github.com/rarandeyo/jev-form-fill/blob/main/docs/validation.md).
+A 20-field form used 20,000–38,000 input tokens with Clef in those tests. Workers AI includes 10,000 Neurons per day at no charge, which covers roughly 450,000 Clef input tokens or 1,200,000 Clef Flash input tokens. Measured results are in [docs/validation.md](https://github.com/rarandeyo/jev-form-fill/blob/main/docs/validation.md).
 
 Fields are analyzed in batches of eight, with 1–4 API requests per batch. HTTP failures are not retried automatically. Saved API keys use `chrome.storage.local`, not Chrome sync or an OS credential vault. See [PRIVACY.md](PRIVACY.md) for details.
 

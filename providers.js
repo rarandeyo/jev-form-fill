@@ -45,5 +45,5 @@ export const modelOf=(provider,id)=>Object.hasOwn(provider.models,id)?provider.m
 // A provider with one of its models chosen (the default model when the id is unknown).
 export function profileOf(providerId,modelId) {
   const provider=providerOf(providerId),model=modelOf(provider,modelId);
-  return Object.freeze({...provider,modelId:model.id,modelName:model.name,model:model.model,thresholds:model.thresholds,url:settings=>provider.url(settings,model)});
+  return Object.freeze({...provider,modelId:model.id,model:model.model,thresholds:model.thresholds,url:settings=>provider.url(settings,model)});
 }

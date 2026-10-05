@@ -6,7 +6,7 @@
 - API keys are stored per provider; a saved legacy TypeSafe key moves to the new storage on first open.
 - Switching provider or model discards existing proposals. Diagnostics record the provider, model and decision thresholds used.
 - Clef uses the Jev decision thresholds; Clef Flash uses them except confidence (0.70), measured on fictional forms; see docs/validation.md.
-- An extracted value no longer starts with a symbol-only token such as 〒 or ☎; a range of symbols only is skipped.
+- Extracted and quoted values no longer start with a marker symbol such as 〒, ☎ or ☎️; ㈱ and № stay part of a value, and a value of markers only is skipped.
 
 ## 0.1.5
 

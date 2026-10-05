@@ -5,7 +5,7 @@ import {createRequire} from 'node:module';
 import {evaluate} from '../core.js';
 import {pageCommand} from '../page.js';
 import {resolveLanguage,translator,localizeMessage} from '../i18n.js';
-import {providers,providerOf,profileOf,validAccountId,DEFAULT_PROVIDER} from '../providers.js';
+import {providers,providerOf,modelOf,profileOf,validAccountId,DEFAULT_PROVIDER} from '../providers.js';
 const require=createRequire(import.meta.url);
 const {JSDOM}=require(process.env.JEV_TEST_DEPS || 'jsdom');
 const html=await readFile(new URL('../popup.html',import.meta.url),'utf8');
@@ -16,7 +16,7 @@ function popup({evaluateFn=evaluate,call=async()=>({answers:{}}),pageFn=()=>({to
   const win=dom.window;
   let saved={...initialSaved};
   win.evaluate=evaluateFn;win.pageCommand=pageCommand;win.callJev=call;win.AbortController=AbortController;
-  win.resolveLanguage=resolveLanguage;win.translator=translator;win.localizeMessage=localizeMessage;win.providers=providers;win.providerOf=providerOf;win.profileOf=profileOf;win.validAccountId=validAccountId;win.DEFAULT_PROVIDER=DEFAULT_PROVIDER;
+  win.resolveLanguage=resolveLanguage;win.translator=translator;win.localizeMessage=localizeMessage;win.providers=providers;win.providerOf=providerOf;win.profileOf=profileOf;win.modelOf=modelOf;win.validAccountId=validAccountId;win.DEFAULT_PROVIDER=DEFAULT_PROVIDER;
   win.chrome={i18n:{getUILanguage:()=>uiLanguage},storage:{local:{setAccessLevel:async()=>{},get:async()=>saved,set:async x=>{saved={...saved,...x};},remove:async key=>{delete saved[key];}}},tabs:{query:async()=>[{id:1,url:'https://example.com/form'}]},scripting:{executeScript:async x=>[{result:await pageFn(x.args[0])}]}};
   win.eval(script);
   return {dom,win,$:id=>win.document.getElementById(id),saved:()=>saved};
@@ -272,4 +272,11 @@ test('a saved model is restored, an unknown one falls back to Clef, and TypeSafe
   const typesafe=popup({});
   await waitFor(()=>typesafe.$('target').textContent.includes('example.com'));
   assert.equal(typesafe.$('model-field').hidden,true);
+});
+test('switching model keeps an unsaved token and the save choice as typed',async()=>{
+  const ui=popup({initialSaved:{keys:{cloudflare:'old'},provider:'cloudflare',accountId:cfAccount}});
+  await waitFor(()=>ui.$('target').textContent.includes('example.com'));
+  ui.$('api-key').value='typed-new-token';ui.$('remember').checked=false;
+  ui.$('model').value='clef-flash';ui.$('model').dispatchEvent(new ui.win.Event('change'));await waitFor(()=>!ui.$('model').disabled);
+  assert.equal(ui.$('api-key').value,'typed-new-token');assert.equal(ui.$('remember').checked,false);assert.equal(ui.$('model').value,'clef-flash');
 });

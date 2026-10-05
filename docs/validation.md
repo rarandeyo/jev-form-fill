@@ -77,7 +77,7 @@ The browser run replaces `chrome.tabs.query` in the popup tab and grants host ac
 
 ### Limits
 
-The values were fitted on three small fictional forms (18 required changes) and checked on one lab form. They are not calibrated probabilities or accuracy figures. Clef Flash answered identically across runs, so repeated runs add no independent evidence; Clef's answers differed slightly between two runs. The replay assumes an answer does not depend on which other questions share a request; the browser runs gave the same fills as the replay for demo-form and contact-ja.
+The values were fitted on three small fictional forms (18 required changes) and checked on one lab form. They are not calibrated probabilities or accuracy figures. Repeated Node runs of either model gave identical answers, so they add no independent evidence. Clef's browser run of jp-list differed from Node in one field (備考). The replay assumes an answer does not depend on which other questions share a request; the browser runs gave the same fills as the replay for demo-form and contact-ja.
 
 ## Japanese application forms and English forms with Japanese text (Clef and Clef Flash)
 
@@ -99,6 +99,8 @@ Required fields filled, source ending in a newline (no wrong fill with either mo
 | romanized values in 「」 with Japanese item names (`en-source-ja-quoted.txt`) | English | 11/12 | 10/12 | none |
 | total, with the newline / without | | 65/82, 65/82 | 43/82, 43/82 | |
 
+With Clef the final newline changed two sources in opposite directions: jp-zenkaku 6/7 with it and 5/7 without, en-list 3/6 with it and 4/6 without.
+
 With Clef, the fields still missed were mostly unquoted text: the list's 姓 (confidence 0.62), email and notes; the paragraph's building and email; the era date's birth year (平成2年 not converted); and the English form's Full name (0.747), email and postal code. With 「」 Clef filled everything except two phone boxes, stopped by the whole-source check (0.89, 0.74), and on the romanized English source everything except Address line 1 (0.87). The browser runs of jp-list, jp-quoted and en-list with Clef are in the table above.
 
 The Clef Flash browser runs of jp-list, jp-prose, jp-quoted, en-list, en-prose and en-quoted, made before 〒 was dropped, produced the same fills as Node then, and Undo restored every changed field. The first browser attempt of jp-quoted ended with “The API did not respond in time” and changed nothing; the second attempt succeeded.
@@ -111,7 +113,7 @@ What Clef Flash filled and what stopped:
 - English form: no Japanese name was put into First name, Last name or Full name in any run; those fields were skipped. Romanized, quoted values (en-quoted) filled 10 of 12; First name (0.88) and Country (0.68) stopped at the whole-source check. Wrong candidates were stopped with little margin: en-list State / Prefecture proposed the whole address `〒150-0041 東京都渋谷区神南1-2-3 みなもビル4F` (range start confidence 0.65, p 0.83), en-prose ZIP / Postal code proposed `〒150-0041` before 〒 was dropped (confidence 0.72, p just under 0.85), and jp-zenkaku's first postal-code box proposed the full-width `１５０` (confidence 0.61, p 0.82). On the Japanese form, jp-list 建物名 proposed the whole address line, stopped far below the gates (confidence 0.18).
 - Three decisions here were accepted only because Clef Flash's confidence is 0.70 rather than 0.75: jp-zenkaku birth day (0.7375), jp-wareki セイ (0.7023) and en-list phone (0.7301). All three were correct.
 
-**The 〒 fill.** Before leading symbols were dropped, Clef Flash put `〒150-0041` into en-list's ZIP / Postal code from `住所：〒150-0041 東京都…`: the range start chose the 〒 token (confidence 0.77, p 0.90), the end chose 150-0041 (0.81, 0.92) and the whole-source check accepted it (0.94). An extracted value now starts after any leading symbol-only token (Unicode category So, such as 〒 or ☎) and stays a slice of the source; a range of symbols only is skipped. With that, Clef Flash fills `150-0041` there, and neither model made a wrong fill.
+**The 〒 fill.** Before leading symbols were dropped, Clef Flash put `〒150-0041` into en-list's ZIP / Postal code from `住所：〒150-0041 東京都…`: the range start chose the 〒 token (confidence 0.77, p 0.90), the end chose 150-0041 (0.81, 0.92) and the whole-source check accepted it (0.94). An extracted or quoted value now starts after any leading marker token (Unicode category So such as 〒, ☎ or ☎️ with its variation selector; enclosed CJK and letterlike symbols such as ㈱ and № are kept, except ℡) and stays a slice of the source; a value of markers only is skipped. With that, Clef Flash fills `150-0041` there, and neither model made a wrong fill.
 
 Limits: one fictional Japanese form and one English form, eight sources with and without a final newline, one run per model. The expected tables are the author's reading of each source; whether 東京都 should fill a prefecture from an address, or whether `〒150-0041` is acceptable in a postal-code field, are judgment calls recorded in `dev/forms.mjs`.
 

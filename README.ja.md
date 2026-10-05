@@ -68,7 +68,7 @@ Chrome 116以上が対象です。ビルドやNode.jsのインストールは不
 | Clef（`clef`、既定） | 入力100万トークンあたり$0.240 | 入る欄が多い。遅め |
 | Clef Flash（`clef-flash`） | 入力100万トークンあたり$0.090 | 入る欄が少ない。速くて安い |
 
-試験では20項目ほどのフォーム1枚で入力が約2.5万トークンでした。Workers AIには1日10,000 Neuronsの無料枠があり、Clefなら入力約45万トークン、Clef Flashなら約120万トークンに当たります。実測は [docs/validation.ja.md](https://github.com/rarandeyo/jev-form-fill/blob/main/docs/validation.ja.md) にあります。
+試験では20項目ほどのフォーム1枚で、Clefの入力が2万〜3.8万トークンでした。Workers AIには1日10,000 Neuronsの無料枠があり、Clefなら入力約45万トークン、Clef Flashなら約120万トークンに当たります。実測は [docs/validation.ja.md](https://github.com/rarandeyo/jev-form-fill/blob/main/docs/validation.ja.md) にあります。
 
 8項目ずつ分析し、1バッチあたり1〜4回のAPI要求を行います。HTTPエラーの自動再試行はしません。APIキーは通常、開いているポップアップ内だけに保持します。保存を明示した場合だけ `chrome.storage.local` に保存します。詳細は [PRIVACY.ja.md](PRIVACY.ja.md) を参照してください。
 

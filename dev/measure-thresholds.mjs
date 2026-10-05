@@ -6,13 +6,14 @@
 // higher confidence values are then replayed from those decisions, so all candidates see the same answers.
 import {mkdir,writeFile} from 'node:fs/promises';
 import {createRequire} from 'node:module';
-import {evaluate,passages,tokens} from '../core.js';
+import {evaluate,passages,tokens,valueStart} from '../core.js';
 import {pageCommand} from '../page.js';
 import {callJev} from '../client.js';
-import {profileOf} from '../providers.js';
+import {providers,profileOf} from '../providers.js';
 import {fixtures,readState,grade} from './forms.mjs';
 const require=createRequire(import.meta.url);
 const {JSDOM}=require('jsdom');
+if(process.argv[4]&&!Object.hasOwn(providers.cloudflare.models,process.argv[4])) throw new Error(`Unknown Cloudflare model: ${process.argv[4]}`);
 const provider=profileOf('cloudflare',process.argv[4]),runs=Number(process.argv[2]||2),set=process.argv[3]||'tuning',jev=profileOf('typesafe').thresholds.confidence,threshold=provider.thresholds.confidence;
 const grid=[...new Set([jev,threshold,0.7,0.65,0.6,0.55,0.5,0.45,0.4,0.3,0])].sort((a,b)=>b-a);
 console.log(`model ${provider.model}, confidence ${threshold}`);
@@ -40,8 +41,9 @@ function proposal(row,source,verified) {
   const at=stage=>row.diagnostics.find(x=>x.stage===stage)?.choice;
   const passage=passages(source)[Number(at('source')?.slice(1))],start=at('start'),end=at('end');
   if(!passage||!/^t\d+$/.test(start||'')||!/^t\d+$/.test(end||'')) return undefined;
-  const pieces=tokens(passage.text),a=pieces[Number(start.slice(1))],b=pieces[Number(end.slice(1))];
-  return a&&b&&Number(start.slice(1))<=Number(end.slice(1))?passage.text.slice(a.start,b.end):undefined;
+  const pieces=tokens(passage.text),last=Number(end.slice(1)),first=valueStart(pieces,Number(start.slice(1)),last);
+  if(!pieces[last]||Number(start.slice(1))>last) return undefined;
+  return first<=last?passage.text.slice(pieces[first].start,pieces[last].end):'';
 }
 // The gate that stopped a row at Clef's threshold.
 function stopper(row) {
@@ -50,7 +52,7 @@ function stopper(row) {
   const low=row.diagnostics.find(x=>x.gate==='value'&&x.confidence<threshold);
   if(row.status==='ready'&&low) return `${low.stage} c=${low.confidence.toFixed(2)} below ${threshold}`;
   const skipped=row.diagnostics.find(x=>x.choice==='skip');
-  return skipped?`${skipped.stage} chose skip`:'structural (range order or size)';
+  return skipped?`${skipped.stage} chose skip`:row.proposal===''?'symbol-only range':'structural (range order or size)';
 }
 const all=[],outDir=new URL('../.local/thresholds/',import.meta.url);
 await mkdir(outDir,{recursive:true});
