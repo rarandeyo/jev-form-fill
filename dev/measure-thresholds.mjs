@@ -41,8 +41,9 @@ function proposal(row,source,verified) {
   const at=stage=>row.diagnostics.find(x=>x.stage===stage)?.choice;
   const passage=passages(source)[Number(at('source')?.slice(1))],start=at('start'),end=at('end');
   if(!passage||!/^t\d+$/.test(start||'')||!/^t\d+$/.test(end||'')) return undefined;
-  const pieces=tokens(passage.text),last=Number(end.slice(1)),first=valueStart(pieces,Number(start.slice(1)),last);
+  const pieces=tokens(passage.text),last=Number(end.slice(1));
   if(!pieces[last]||Number(start.slice(1))>last) return undefined;
+  const first=valueStart(pieces,Number(start.slice(1)),last);
   return first<=last?passage.text.slice(pieces[first].start,pieces[last].end):'';
 }
 // The gate that stopped a row at Clef's threshold.

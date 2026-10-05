@@ -175,6 +175,8 @@ test('markers with a variation selector are dropped, quoted values lose them too
   assert.equal((await range('電話：☎️ 03-1234-5678','☎','03-1234-5678'))[0].value,'03-1234-5678');
   assert.equal((await range('会社名：㈱みなも','㈱','みなも'))[0].value,'㈱みなも');
   assert.equal((await range('番号：№123','№','123'))[0].value,'№123');
+  assert.equal((await range('温度：°C','°','C'))[0].value,'°C');
+  assert.equal((await range('電話：℡ 03-1234-5678','℡','03-1234-5678'))[0].value,'03-1234-5678');
   const quoted=source=>evaluate(source,[field],async body=>{
     const q=body.questions;
     if(q.f0?.type==='noul') return {answers:{f0:{type:'noul',noul:0.95}}};
@@ -183,4 +185,6 @@ test('markers with a variation selector are dropped, quoted values lose them too
   assert.equal((await quoted('郵便番号：「〒150-0041」'))[0].value,'150-0041');
   assert.equal((await quoted('郵便番号：「〒」'))[0].status,'skip');
   assert.equal((await quoted('会社名：「㈱みなも」'))[0].value,'㈱みなも');
+  assert.equal((await quoted('Code: `  ABC`'))[0].value,'  ABC');
+  assert.equal((await quoted('会社名：「㍿みなも」'))[0].value,'㍿みなも');
 });

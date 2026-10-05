@@ -18,9 +18,10 @@ export function tokens(text) {
   // Punctuation is separate so markdown wrappers need not become part of a value.
   return Array.from(text.matchAll(/[\p{L}\p{N}_]+(?:[-/'’][\p{L}\p{N}_]+)*|[^\s]/gu),m=>({text:m[0],start:m.index,end:m.index+m[0].length}));
 }
-// Marker symbols such as 〒, ☎ or ☎️ (with its variation selector) label a value rather than belong to it. Enclosed CJK and
-// letterlike symbols such as ㈱, ㍿ or № are part of values, so they are kept; ℡ is a marker.
-const marker=/^(?:(?![\u2100-\u214F\u3200-\u33FF])\p{So}|\u2121|[\uFE0E\uFE0F\u200D])+$/u;
+// Marker symbols such as 〒, ☎ or ☎️ (with its variation selector) label a value rather than belong to it. Latin-1 symbols,
+// letterlike symbols, enclosed alphanumerics, enclosed CJK and CJK compatibility (°, ©, №, Ⓐ, ㈱, ㍿) are part of values,
+// so they are kept; ℡ is a marker.
+const marker=/^(?:(?![\u0080-\u00FF\u2100-\u214F\u2460-\u24FF\u3200-\u33FF])\p{So}|\u2121|[\uFE0E\uFE0F\u200D])+$/u;
 // The first token at or after a that is not a marker; values stay source slices, only their start moves.
 export function valueStart(pieces,a,b) {
   while (a<=b && marker.test(pieces[a].text)) a++;
@@ -119,9 +120,10 @@ function selectValues(source,rows,{model,thresholds}) {
       if(!selected||selected==='skip'){row.status='skip';row.reason='根拠の行から値または空欄指定を確定できませんでした。';continue;}
       if(selected==='extract'){row.status='extract';continue;}
       const span=selected==='clear'?null:spans[Number(selected.slice(1))];
+      // Only leading markers move the start; a quoted value without one is kept exactly, including its spaces.
       const pieces=span?tokens(span.value):[],first=span?valueStart(pieces,0,pieces.length-1):0;
-      if(span&&first>=pieces.length){row.status='skip';row.reason='根拠の行から値または空欄指定を確定できませんでした。';continue;}
-      row.value=span?row.passage.text.slice(span.start+pieces[first].start,span.end):'';
+      if(first>0&&first>=pieces.length){row.status='skip';row.reason='根拠の行から値または空欄指定を確定できませんでした。';continue;}
+      row.value=span?row.passage.text.slice(span.start+(first>0?pieces[first].start:0),span.end):'';
       row.display=row.value||'空欄';row.status='verify';
       row.evidence={start:row.passage.start,end:row.passage.end,text:row.passage.text};
     }
