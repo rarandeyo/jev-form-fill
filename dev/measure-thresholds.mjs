@@ -39,7 +39,7 @@ function proposal(row,source,verified) {
   const passage=passages(source)[Number(at('source')?.slice(1))],start=at('start'),end=at('end');
   if(!passage||!/^t\d+$/.test(start||'')||!/^t\d+$/.test(end||'')) return undefined;
   const pieces=tokens(passage.text),a=pieces[Number(start.slice(1))],b=pieces[Number(end.slice(1))];
-  return a&&b&&a.start<=b.end?passage.text.slice(a.start,b.end):undefined;
+  return a&&b&&Number(start.slice(1))<=Number(end.slice(1))?passage.text.slice(a.start,b.end):undefined;
 }
 // The gate that stopped a row at Clef's threshold.
 function stopper(row) {
@@ -47,8 +47,8 @@ function stopper(row) {
   if(rejected) return rejected.stage==='verification'?`verification ${rejected.probability?.toFixed(2)}`:`${rejected.stage} ${rejected.gate} choice=${rejected.choice} c=${rejected.confidence?.toFixed(2)} p=${rejected.probability?.toFixed(2)}`;
   const low=row.diagnostics.find(x=>x.gate==='value'&&x.confidence<threshold);
   if(row.status==='ready'&&low) return `${low.stage} c=${low.confidence.toFixed(2)} below ${threshold}`;
-  const last=row.diagnostics.at(-1);
-  return last?.choice==='skip'?`${last.stage} chose skip`:'structural (range order or size)';
+  const skipped=row.diagnostics.find(x=>x.choice==='skip');
+  return skipped?`${skipped.stage} chose skip`:'structural (range order or size)';
 }
 const all=[],outDir=new URL('../.local/thresholds/',import.meta.url);
 await mkdir(outDir,{recursive:true});
@@ -90,6 +90,6 @@ const limits=Object.fromEntries(selected.map(x=>[x.name,x.limits||{}]));
 for(const run of all) {
   const result=run.results.find(x=>x.confidence===threshold);
   console.log(`\n== ${run.fixture} run ${run.run} at confidence ${threshold}: ${result.done}/${result.needed} required, ${result.wrong} wrong`);
-  for(const row of result.rows) console.log(`  ${row.status.padEnd(7)} ${row.selector} = ${JSON.stringify(row.final)}${limits[run.fixture][row.selector]?` [limit: ${limits[run.fixture][row.selector].reason}]`:''}`);
+  for(const row of result.rows) console.log(`  ${row.status.padEnd(7)} ${row.selector} = ${JSON.stringify(row.final)}${limits[run.fixture][row.selector]?` [limit: ${limits[run.fixture][row.selector]}]`:''}`);
   for(const row of run.rows) console.log(`  · ${row.label}: ${acceptedAt(row,threshold)?'ready '+JSON.stringify(row.value):`skip ${stopper(row)}${row.proposal!==undefined?` proposed ${JSON.stringify(row.proposal)}`:''}`}`);
 }
