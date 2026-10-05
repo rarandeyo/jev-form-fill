@@ -43,6 +43,10 @@ export const messages = {
     "en": "Model provider",
     "ja": "接続先"
   },
+  "modelLabel": {
+    "en": "Model",
+    "ja": "モデル"
+  },
   "accountLabel": {
     "en": "Cloudflare Account ID",
     "ja": "CloudflareのAccount ID"

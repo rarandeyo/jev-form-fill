@@ -4,7 +4,7 @@
 
 Jev Form Fillは、ユーザーが「TypeSafeへ送って候補を作る」を押したときに、元の文章とフォームの項目名・文脈・型・選択肢をTypeSafeへ送ります。送信先は `https://api.typesafe.ai/v1/systemone`、モデルは `jev-latest` です。APIキーは認証ヘッダーとしてTypeSafeに送信します。API利用料や、TypeSafe側のデータ処理については同サービスの規約・方針を確認してください。
 
-接続先に「Cloudflare Workers AI」を選んだ場合は、同じ内容を `https://api.cloudflare.com/client/v4/accounts/{Account ID}/ai/run/@cf/cloudflare/clef-flash` へ、モデル `clef-flash` で送り、CloudflareのAPIトークンを認証ヘッダーとして送信します。Cloudflare側のデータ処理については同社の規約・方針を確認してください。キー・トークンは接続先ごとに分けて保持し、要求には選んだ接続先のものだけを付けます。
+接続先に「Cloudflare Workers AI」を選んだ場合は、同じ内容を `https://api.cloudflare.com/client/v4/accounts/{Account ID}/ai/run/@cf/cloudflare/clef`（モデル `clef`）へ、Clef Flashを選んだ場合は `…/@cf/cloudflare/clef-flash`（モデル `clef-flash`）へ送り、CloudflareのAPIトークンを認証ヘッダーとして送信します。Cloudflare側のデータ処理については同社の規約・方針を確認してください。キー・トークンは接続先ごとに分けて保持し、要求には選んだ接続先のものだけを付けます。
 
 既存の入力値、Cookie、対象ページのURL、ページ本文全体は解析要求に含めません。項目名や見出しに個人情報があれば、それはフォーム情報として送られます。文章中の秘密情報を自動除去する機能はありません。
 
@@ -16,4 +16,4 @@ APIキーは通常、開いているポップアップ内だけに保持しま�
 
 拡張にはアクセス解析や独自サーバーへの送信はありません。GitHubはコードの配布先で、拡張の解析要求を受信しません。ローカル試験フォームは送信された架空データを、そのPCの `.local/form-fill-lab/receipts/` に保存します。このフォルダはGit管理対象外です。
 
-表示言語と接続先の選択は `chrome.storage.local` に保存します。言語設定だけでAPIキーを保存することはありません。
+表示言語、接続先、Cloudflareのモデルの選択は `chrome.storage.local` に保存します。言語設定だけでAPIキーを保存することはありません。

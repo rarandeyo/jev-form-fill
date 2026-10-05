@@ -1,8 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { passages, tokens, acceptChoice, propose, evaluate } from '../core.js';
-import { providers } from '../providers.js';
-const PROFILE = providers.typesafe;
+import { profileOf } from '../providers.js';
+const PROFILE = profileOf('typesafe');
 
 const yes = (choice, criteria, rest = {}) => ({type:'choice',choice,confidence:0.97,probabilities:Object.fromEntries(Object.keys(criteria).map(key=>[key,key===choice?0.98:0.02/(Object.keys(criteria).length-1)])),...rest});
 test('source offsets preserve Japanese, multiline and exact punctuation', () => {
@@ -148,4 +148,19 @@ test('lowered thresholds reach value and range-extraction gates, and noul reache
   const quoted=thresholds=>evaluate('App name: `sweep-pr`',[field],async body=>body.questions.f0.type==='noul'?{answers:{f0:{type:'noul',noul:0.85}}}:{answers:{f0:modest(body.questions.f0.criteria.v0?'v0':'p0',body.questions.f0.criteria)}},()=>{},{thresholds});
   assert.equal((await quoted(undefined))[0].status,'skip');
   assert.equal((await quoted({...lowered,noul:0.8}))[0].value,'sweep-pr');
+});
+test('a leading symbol token such as 〒 is dropped from an extracted range, and a symbol-only range is skipped',async()=>{
+  const source='住所：〒150-0041 東京都渋谷区神南1-2-3 みなもビル4F';
+  const field={id:'f0',kind:'text',label:'ZIP / Postal code'};
+  const run=(first,last)=>{const verified=[];return evaluate(source,[field],async body=>{
+    const q=body.questions;
+    if(q.f0?.type==='noul'){verified.push(body.state.proposals[0].value);return {answers:{f0:{type:'noul',noul:0.95}}};}
+    if(q.f0_start){const pick=text=>Object.keys(q.f0_start.criteria).find(k=>q.f0_start.criteria[k]===text);return {answers:{f0_start:yes(pick(first),q.f0_start.criteria),f0_end:yes(pick(last),q.f0_end.criteria)}};}
+    return {answers:{f0:yes(q.f0.criteria.p0?'p0':'extract',q.f0.criteria)}};
+  }).then(rows=>({rows,verified}));};
+  const kept=await run('〒','150-0041');
+  assert.equal(kept.rows[0].status,'ready');assert.equal(kept.rows[0].value,'150-0041');assert.deepEqual(kept.verified,['150-0041']);
+  assert.ok(source.includes(kept.rows[0].value));
+  const only=await run('〒','〒');
+  assert.equal(only.rows[0].status,'skip');assert.deepEqual(only.verified,[]);
 });

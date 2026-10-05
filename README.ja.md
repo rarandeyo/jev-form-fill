@@ -33,7 +33,7 @@ Chrome 116以上が対象です。ビルドやNode.jsのインストールは不
 
 1. 設定値やメモをコピーし、入力先のページを開きます。
 2. 拡張を開き、「クリップボードから読む」を押します。文章欄への手動貼り付けもできます。
-3. 「接続先とキーの設定」で接続先（TypeSafe または Cloudflare Workers AI）を選び、キーを入力します。Cloudflare Workers AIではAPIトークンと32文字のAccount IDを入力します。
+3. 「接続先とキーの設定」で接続先（TypeSafe または Cloudflare Workers AI）を選び、キーを入力します。Cloudflare Workers AIではAPIトークンと32文字のAccount IDを入力し、モデル（既定のClefかClef Flash）を選びます。
 4. 「TypeSafeへ送って候補を作る」（Cloudflare Workers AIを選んだ場合は「Cloudflare Workers AIへ送って候補を作る」）を押します。処理中はポップアップを開いたままにしてください。
 5. 候補を確認し、変更したくない項目のチェックを外して「選んだ項目に入力」を押します。既存の値も、選んで適用すれば書き換わります。
 6. 適用結果とページ側の値を確認し、フォームの送信はご自身で行います。「直前の入力を戻す」で最後の書き換えを取り消せます。
@@ -61,7 +61,14 @@ Chrome 116以上が対象です。ビルドやNode.jsのインストールは不
 
 解析先はTypeSafeの `https://api.typesafe.ai/v1/systemone`、モデルは `jev-latest` です。元の文章と対象項目の名前・見出し・型・選択肢を送ります。既存の入力値、Cookie、ページURL、ページ本文全体は解析要求に含めません。項目名・見出しに含まれる個人情報は送られます。アクセス解析はありません。
 
-接続先にCloudflare Workers AIを選んだ場合は、送信先が `https://api.cloudflare.com/client/v4/accounts/{Account ID}/ai/run/@cf/cloudflare/clef-flash`、モデルがClef（`clef-flash`）になります。送る内容はTypeSafeの場合と同じです。キー・トークンは接続先ごとに分けて保持し、選んだ接続先のものだけを送ります。
+接続先にCloudflare Workers AIを選んだ場合は、送信先が `https://api.cloudflare.com/client/v4/accounts/{Account ID}/ai/run/@cf/cloudflare/<モデル>` になります。送る内容はTypeSafeの場合と同じです。キー・トークンは接続先ごとに分けて保持し、選んだ接続先のものだけを送ります。モデルは「接続先とキーの設定」で選べ、どちらも同じAPIトークンとAccount IDを使います。
+
+| モデル | 料金（[Workers AIの料金](https://developers.cloudflare.com/workers-ai/platform/pricing/)） | 架空の試験フォームでの傾向 |
+| --- | --- | --- |
+| Clef（`clef`、既定） | 入力100万トークンあたり$0.240 | 入る欄が多い。遅め |
+| Clef Flash（`clef-flash`） | 入力100万トークンあたり$0.090 | 入る欄が少ない。速くて安い |
+
+試験では20項目ほどのフォーム1枚で入力が約2.5万トークンでした。Workers AIには1日10,000 Neuronsの無料枠があり、Clefなら入力約45万トークン、Clef Flashなら約120万トークンに当たります。実測は [docs/validation.ja.md](https://github.com/rarandeyo/jev-form-fill/blob/main/docs/validation.ja.md) にあります。
 
 8項目ずつ分析し、1バッチあたり1〜4回のAPI要求を行います。HTTPエラーの自動再試行はしません。APIキーは通常、開いているポップアップ内だけに保持します。保存を明示した場合だけ `chrome.storage.local` に保存します。詳細は [PRIVACY.ja.md](PRIVACY.ja.md) を参照してください。
 

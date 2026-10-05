@@ -1,5 +1,5 @@
-import {providers,malformed} from './providers.js';
-export async function callJev(body,key,{signal,fetcher=fetch,provider=providers.typesafe,accountId}={}) {
+import {profileOf,malformed} from './providers.js';
+export async function callJev(body,key,{signal,fetcher=fetch,provider=profileOf('typesafe'),accountId}={}) {
   const problem=provider.settingsError({key,accountId});
   if (problem) throw new Error(problem);
   const response=await fetcher(provider.url({accountId}),{

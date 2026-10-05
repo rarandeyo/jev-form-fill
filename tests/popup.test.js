@@ -5,7 +5,7 @@ import {createRequire} from 'node:module';
 import {evaluate} from '../core.js';
 import {pageCommand} from '../page.js';
 import {resolveLanguage,translator,localizeMessage} from '../i18n.js';
-import {providers,providerOf,validAccountId,DEFAULT_PROVIDER} from '../providers.js';
+import {providers,providerOf,profileOf,validAccountId,DEFAULT_PROVIDER} from '../providers.js';
 const require=createRequire(import.meta.url);
 const {JSDOM}=require(process.env.JEV_TEST_DEPS || 'jsdom');
 const html=await readFile(new URL('../popup.html',import.meta.url),'utf8');
@@ -16,7 +16,7 @@ function popup({evaluateFn=evaluate,call=async()=>({answers:{}}),pageFn=()=>({to
   const win=dom.window;
   let saved={...initialSaved};
   win.evaluate=evaluateFn;win.pageCommand=pageCommand;win.callJev=call;win.AbortController=AbortController;
-  win.resolveLanguage=resolveLanguage;win.translator=translator;win.localizeMessage=localizeMessage;win.providers=providers;win.providerOf=providerOf;win.validAccountId=validAccountId;win.DEFAULT_PROVIDER=DEFAULT_PROVIDER;
+  win.resolveLanguage=resolveLanguage;win.translator=translator;win.localizeMessage=localizeMessage;win.providers=providers;win.providerOf=providerOf;win.profileOf=profileOf;win.validAccountId=validAccountId;win.DEFAULT_PROVIDER=DEFAULT_PROVIDER;
   win.chrome={i18n:{getUILanguage:()=>uiLanguage},storage:{local:{setAccessLevel:async()=>{},get:async()=>saved,set:async x=>{saved={...saved,...x};},remove:async key=>{delete saved[key];}}},tabs:{query:async()=>[{id:1,url:'https://example.com/form'}]},scripting:{executeScript:async x=>[{result:await pageFn(x.args[0])}]}};
   win.eval(script);
   return {dom,win,$:id=>win.document.getElementById(id),saved:()=>saved};
@@ -119,9 +119,9 @@ test('each provider sends only its own key; deleting a key affects only the sele
   assert.equal(ui.$('analyze').textContent,'Cloudflare Workers AIへ送って候補を作る');
   ui.$('source').value='Active: off';ui.$('analyze').click();await waitFor(()=>!ui.$('analyze').disabled);
   assert.deepEqual(calls,[{key:'cf-token',provider:'cloudflare',accountId:cfAccount}]);
-  assert.equal(options.model,'clef-flash');assert.equal(options.thresholds,providers.cloudflare.thresholds);
+  assert.equal(options.model,'clef');assert.equal(options.thresholds,providers.cloudflare.models.clef.thresholds);
   const diagnostics=JSON.parse(ui.$('diagnostics').value);
-  assert.equal(diagnostics.provider,'cloudflare');assert.deepEqual(diagnostics.thresholds,{...providers.cloudflare.thresholds});
+  assert.equal(diagnostics.provider,'cloudflare');assert.equal(diagnostics.model,'clef');assert.deepEqual(diagnostics.thresholds,{...providers.cloudflare.models.clef.thresholds});
   assert.equal(ui.$('diagnostics').value.includes('cf-token')||ui.$('diagnostics').value.includes('ts-key'),false);
   ui.$('forget-key').click();await waitFor(()=>!ui.$('forget-key').disabled);
   assert.deepEqual(plain(ui.saved().keys),{typesafe:'ts-key'});
@@ -239,4 +239,37 @@ test('a legacy apiKey wins over an older keys.typesafe left by a downgrade',asyn
   const ui=popup({initialSaved:{apiKey:'newer-key',keys:{typesafe:'older-key'}}});
   await waitFor(()=>ui.$('target').textContent.includes('example.com'));
   assert.equal(ui.saved().keys.typesafe,'newer-key');assert.equal(ui.saved().apiKey,undefined);
+});
+test('Cloudflare defaults to Clef for existing users; switching model saves it in one write and drops proposals',async()=>{
+  const calls=[];let options;
+  const ui=popup({initialSaved:{keys:{cloudflare:'cf-token'},provider:'cloudflare',accountId:cfAccount},
+    evaluateFn:async(source,fields,request,progress,opts)=>{options=opts;await request({});return [{id:'f0',field:{label:'Active',kind:'checkbox'},status:'ready',value:false,display:'オフ',reason:'元の文章に一致する候補です。'}];},
+    call:async(body,key,opts)=>{calls.push([key,opts.provider.model,opts.provider.url({accountId:opts.accountId})]);return {answers:{}};}});
+  await waitFor(()=>ui.$('target').textContent.includes('example.com'));
+  assert.equal(ui.$('model-field').hidden,false);assert.equal(ui.$('model').value,'clef');
+  assert.deepEqual(plain(ui.saved()),{keys:{cloudflare:'cf-token'},provider:'cloudflare',accountId:cfAccount});
+  ui.$('source').value='Active: off';ui.$('analyze').click();await waitFor(()=>!ui.$('analyze').disabled);
+  assert.equal(options.model,'clef');assert.equal(JSON.parse(ui.$('diagnostics').value).model,'clef');
+  assert.equal(ui.$('apply').disabled,false);
+  const writes=[];const set=ui.win.chrome.storage.local.set;ui.win.chrome.storage.local.set=async x=>{writes.push(plain(x));return set(x);};
+  ui.$('model').value='clef-flash';ui.$('model').dispatchEvent(new ui.win.Event('change'));await waitFor(()=>!ui.$('model').disabled);
+  assert.deepEqual(writes,[{models:{cloudflare:'clef-flash'}}]);
+  assert.equal(ui.$('apply').disabled,true);assert.equal(ui.$('results').hidden,true);
+  assert.equal(ui.$('api-key').value,'cf-token');assert.equal(ui.saved().keys.cloudflare,'cf-token');
+  ui.$('analyze').click();await waitFor(()=>!ui.$('analyze').disabled);
+  assert.equal(options.model,'clef-flash');assert.deepEqual({...options.thresholds},{...providers.cloudflare.models['clef-flash'].thresholds});
+  assert.equal(JSON.parse(ui.$('diagnostics').value).model,'clef-flash');
+  assert.deepEqual(calls.map(x=>x.slice(0,2)),[['cf-token','clef'],['cf-token','clef-flash']]);
+  assert.match(calls[1][2],/@cf\/cloudflare\/clef-flash$/);
+});
+test('a saved model is restored, an unknown one falls back to Clef, and TypeSafe shows no model choice',async()=>{
+  const flash=popup({initialSaved:{provider:'cloudflare',models:{cloudflare:'clef-flash'}}});
+  await waitFor(()=>flash.$('target').textContent.includes('example.com'));
+  assert.equal(flash.$('model').value,'clef-flash');
+  const unknown=popup({initialSaved:{provider:'cloudflare',models:{cloudflare:'gone'}}});
+  await waitFor(()=>unknown.$('target').textContent.includes('example.com'));
+  assert.equal(unknown.$('model').value,'clef');
+  const typesafe=popup({});
+  await waitFor(()=>typesafe.$('target').textContent.includes('example.com'));
+  assert.equal(typesafe.$('model-field').hidden,true);
 });

@@ -2,10 +2,11 @@
 
 ## 0.2.0
 
-- Cloudflare Workers AI (Clef, `clef-flash`) as a second model provider, selectable next to TypeSafe in the popup settings.
+- Cloudflare Workers AI as a second model provider, selectable next to TypeSafe in the popup settings, with two models: Clef (`clef`, default) and Clef Flash (`clef-flash`). Both share one API token and Account ID; the chosen model is saved, and an existing Cloudflare setup without one uses Clef.
 - API keys are stored per provider; a saved legacy TypeSafe key moves to the new storage on first open.
-- Switching provider discards existing proposals. Diagnostics record the provider and the decision thresholds used.
-- Clef uses the Jev decision thresholds except confidence (0.70), measured on fictional forms; see docs/validation.md.
+- Switching provider or model discards existing proposals. Diagnostics record the provider, model and decision thresholds used.
+- Clef uses the Jev decision thresholds; Clef Flash uses them except confidence (0.70), measured on fictional forms; see docs/validation.md.
+- An extracted value no longer starts with a symbol-only token such as 〒 or ☎; a range of symbols only is skipped.
 
 ## 0.1.5
 

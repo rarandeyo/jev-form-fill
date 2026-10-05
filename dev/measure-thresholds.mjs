@@ -1,6 +1,7 @@
 // Measures Clef (Cloudflare Workers AI) on fixtures from dev/forms.mjs and how its confidence threshold changes fills.
-// Usage: CF_ACCOUNT_ID=... CF_API_TOKEN=... node dev/measure-thresholds.mjs [runs] [set]
-// set is a fixture set (tuning, the default, or japan) or a comma-separated list of fixture names.
+// Usage: CF_ACCOUNT_ID=... CF_API_TOKEN=... node dev/measure-thresholds.mjs [runs] [set] [model]
+// set is a fixture set (tuning, the default, or japan) or a comma-separated list of fixture names;
+// model is a Cloudflare model id from providers.js (the provider's default when omitted).
 // One live run per fixture uses confidence 0 (p, margin and noul unchanged) and records every decision;
 // higher confidence values are then replayed from those decisions, so all candidates see the same answers.
 import {mkdir,writeFile} from 'node:fs/promises';
@@ -8,12 +9,13 @@ import {createRequire} from 'node:module';
 import {evaluate,passages,tokens} from '../core.js';
 import {pageCommand} from '../page.js';
 import {callJev} from '../client.js';
-import {providers} from '../providers.js';
+import {profileOf} from '../providers.js';
 import {fixtures,readState,grade} from './forms.mjs';
 const require=createRequire(import.meta.url);
 const {JSDOM}=require('jsdom');
-const provider=providers.cloudflare,runs=Number(process.argv[2]||2),set=process.argv[3]||'tuning',jev=providers.typesafe.thresholds.confidence,threshold=provider.thresholds.confidence;
-const grid=[jev,0.7,0.65,0.6,0.55,0.5,0.45,0.4,0.3,0];
+const provider=profileOf('cloudflare',process.argv[4]),runs=Number(process.argv[2]||2),set=process.argv[3]||'tuning',jev=profileOf('typesafe').thresholds.confidence,threshold=provider.thresholds.confidence;
+const grid=[...new Set([jev,threshold,0.7,0.65,0.6,0.55,0.5,0.45,0.4,0.3,0])].sort((a,b)=>b-a);
+console.log(`model ${provider.model}, confidence ${threshold}`);
 const key=process.env.CF_API_TOKEN,accountId=process.env.CF_ACCOUNT_ID;
 if(provider.settingsError({key,accountId})) throw new Error('Set CF_ACCOUNT_ID and CF_API_TOKEN.');
 function page(html) {
@@ -73,7 +75,7 @@ for(const fixture of selected) for(let run=1;run<=runs;run++) {
   all.push({fixture:fixture.name,run,calls,retries,ms:Date.now()-started,rows:rows.map(row=>({id:row.id,label:row.field.label,status:row.status,value:row.value,proposal:proposal(row,fixture.source,verified),diagnostics:row.diagnostics})),results});
   console.log(`${fixture.name} run ${run}: ${calls} calls, ${retries} retries, ${Date.now()-started}ms`);
 }
-await writeFile(new URL(`measure-${new Date().toISOString().replace(/:/g,'-')}.json`,outDir),JSON.stringify(all,null,1));
+await writeFile(new URL(`measure-${provider.modelId}-${new Date().toISOString().replace(/:/g,'-')}.json`,outDir),JSON.stringify(all,null,1));
 console.log('\nconfidence | '+[...new Set(all.map(x=>x.fixture))].join(' | ')+' | required done | correct changes | wrong');
 for(const confidence of grid) {
   const cells=[...new Set(all.map(x=>x.fixture))].map(name=>all.filter(x=>x.fixture===name).map(x=>{const r=x.results.find(y=>y.confidence===confidence);return `${r.done}/${r.needed}${r.wrong?` (${r.wrong} wrong)`:''}`;}).join(', '));

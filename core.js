@@ -1,6 +1,6 @@
 // Jev chooses closed-set answers. Text values always come from original source offsets.
-import {providers,DEFAULT_PROVIDER} from './providers.js';
-const defaults=providers[DEFAULT_PROVIDER];
+import {profileOf,DEFAULT_PROVIDER} from './providers.js';
+const defaults=profileOf(DEFAULT_PROVIDER);
 export const LIMITS = {source:12000,passages:120,tokens:240,fields:160,batch:8};
 export function passages(source) {
   if (typeof source !== 'string' || !source.trim()) throw new Error('元の文章を入力してください。');
@@ -132,7 +132,9 @@ function extraction(source,rows,{model,thresholds}) {
       const start=markChoice(row,response?.answers?.[`${row.id}_start`],criteria,'start',false,thresholds);
       const end=markChoice(row,response?.answers?.[`${row.id}_end`],criteria,'end',false,thresholds);
       if (!start || !end || start==='skip' || end==='skip') continue;
-      const a=Number(start.slice(1)),b=Number(end.slice(1));
+      // Leading symbol-only tokens such as 〒 or ☎ mark a value rather than belong to it; the value stays a source slice.
+      let a=Number(start.slice(1));const b=Number(end.slice(1));
+      while (a<=b && /^\p{So}+$/u.test(pieces[a].text)) a++;
       if (a>b) continue;
       row.value=row.passage.text.slice(pieces[a].start,pieces[b].end);
       row.display=row.value;
