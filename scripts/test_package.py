@@ -40,9 +40,11 @@ class PackageTests(unittest.TestCase):
                 self.assertEqual(set(z.namelist()), {'jev-form-fill/' + name for name in package.FILES})
                 for name in package.FILES:
                     self.assertEqual(z.read('jev-form-fill/' + name), (ROOT / name).read_bytes())
-                self.assertEqual(json.loads(z.read('jev-form-fill/manifest.json'))['version'], '0.1.5')
+                self.assertEqual(json.loads(z.read('jev-form-fill/manifest.json'))['version'], '0.2.0')
                 manifest = json.loads(z.read('jev-form-fill/manifest.json'))
                 self.assertEqual(manifest['default_locale'], 'en')
+                for host in manifest['host_permissions']:
+                    self.assertRegex(host, r'^https://api\.[a-z0-9.-]+/\*$')
                 for locale in ('en', 'ja'):
                     messages = json.loads(z.read('jev-form-fill/_locales/' + locale + '/messages.json'))
                     for reference in (manifest['name'], manifest['description'], manifest['action']['default_title']):

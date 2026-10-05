@@ -5,6 +5,7 @@ import {createRequire} from 'node:module';
 import {evaluate} from '../core.js';
 import {pageCommand} from '../page.js';
 import {resolveLanguage,translator,localizeMessage} from '../i18n.js';
+import {providers,providerOf,modelOf,profileOf,validAccountId,DEFAULT_PROVIDER} from '../providers.js';
 const require=createRequire(import.meta.url);
 const {JSDOM}=require(process.env.JEV_TEST_DEPS || 'jsdom');
 const html=await readFile(new URL('../popup.html',import.meta.url),'utf8');
@@ -15,7 +16,7 @@ function popup({evaluateFn=evaluate,call=async()=>({answers:{}}),pageFn=()=>({to
   const win=dom.window;
   let saved={...initialSaved};
   win.evaluate=evaluateFn;win.pageCommand=pageCommand;win.callJev=call;win.AbortController=AbortController;
-  win.resolveLanguage=resolveLanguage;win.translator=translator;win.localizeMessage=localizeMessage;
+  win.resolveLanguage=resolveLanguage;win.translator=translator;win.localizeMessage=localizeMessage;win.providers=providers;win.providerOf=providerOf;win.profileOf=profileOf;win.modelOf=modelOf;win.validAccountId=validAccountId;win.DEFAULT_PROVIDER=DEFAULT_PROVIDER;
   win.chrome={i18n:{getUILanguage:()=>uiLanguage},storage:{local:{setAccessLevel:async()=>{},get:async()=>saved,set:async x=>{saved={...saved,...x};},remove:async key=>{delete saved[key];}}},tabs:{query:async()=>[{id:1,url:'https://example.com/form'}]},scripting:{executeScript:async x=>[{result:await pageFn(x.args[0])}]}};
   win.eval(script);
   return {dom,win,$:id=>win.document.getElementById(id),saved:()=>saved};
@@ -62,9 +63,9 @@ test('switching language preserves source values, unchecked proposals and API ke
   assert.equal(ui.$('status').textContent,'候補を作成しました。確認後に入力してください。 独自の選択UIやiframeは対象外になる場合があります。');
   assert.equal(ui.win.document.querySelector('[data-field-id=f0]').checked,false);
   assert.match(ui.$('rows').textContent,/新井 美香/);
-  assert.equal(ui.saved().apiKey,'saved-key');assert.equal(ui.saved().uiLanguage,'ja');
+  assert.equal(ui.saved().keys.typesafe,'saved-key');assert.equal(ui.saved().uiLanguage,'ja');
   ui.$('forget-key').click();await waitFor(()=>!ui.$('forget-key').disabled);
-  assert.deepEqual(ui.saved(),{uiLanguage:'ja'});
+  assert.deepEqual(plain(ui.saved()),{keys:{},accountId:'',uiLanguage:'ja'});
 });
 test('full popup-to-form flow uses real planner and page adapter, supports OFF and undo without submission', async()=>{
   const form=new JSDOM(`<form><h2>Webhook</h2><label><input id=active type=checkbox checked>Active</label><button type=submit>Submit</button></form>`,{url:'https://example.com/form',runScripts:'outside-only'});
@@ -97,7 +98,185 @@ test('a failed API request leaves the form untouched and no apply plan; keys are
   await waitFor(()=>!ui.$('analyze').disabled);
   assert.match(ui.$('status').textContent,/quota/);assert.equal(ui.$('apply').disabled,true);assert.equal(applies,0);assert.deepEqual(ui.saved(),{});
   ui.$('remember').checked=true;ui.$('save-key').click();await waitFor(()=>!ui.$('save-key').disabled);
-  assert.equal(ui.saved().apiKey,'test-key');
+  assert.equal(ui.saved().keys.typesafe,'test-key');
   ui.$('forget-key').click();await waitFor(()=>!ui.$('forget-key').disabled);
-  assert.deepEqual(ui.saved(),{});
+  assert.deepEqual(plain(ui.saved()),{keys:{},accountId:''});
+});
+const plain=x=>JSON.parse(JSON.stringify(x));
+const cfAccount='0123456789abcdef0123456789abcdef';
+const choose=async(ui,id)=>{ui.$('provider').value=id;ui.$('provider').dispatchEvent(new ui.win.Event('change'));await waitFor(()=>!ui.$('provider').disabled);};
+test('a legacy apiKey migrates to keys.typesafe and the old entry is removed',async()=>{
+  const ui=popup({initialSaved:{apiKey:'legacy-key',uiLanguage:'ja'}});
+  await waitFor(()=>ui.$('target').textContent.includes('example.com'));
+  assert.deepEqual(plain(ui.saved()),{keys:{typesafe:'legacy-key'},accountId:'',uiLanguage:'ja'});
+  assert.equal(ui.$('provider').value,'typesafe');assert.equal(ui.$('api-key').value,'legacy-key');assert.equal(ui.$('remember').checked,true);
+});
+test('each provider sends only its own key; deleting a key affects only the selected provider',async()=>{
+  const calls=[];let options;
+  const ui=popup({initialSaved:{keys:{typesafe:'ts-key',cloudflare:'cf-token'},provider:'cloudflare',accountId:cfAccount},evaluateFn:async(source,fields,request,progress,opts)=>{options=opts;await request({model:'x'});return [];},call:async(body,key,opts)=>{calls.push({key,provider:opts.provider.id,accountId:opts.accountId});return {answers:{}};}});
+  await waitFor(()=>ui.$('target').textContent.includes('example.com'));
+  assert.equal(ui.$('provider').value,'cloudflare');assert.equal(ui.$('account-field').hidden,false);assert.equal(ui.$('api-key').value,'cf-token');
+  assert.equal(ui.$('analyze').textContent,'Cloudflare Workers AIへ送って候補を作る');
+  ui.$('source').value='Active: off';ui.$('analyze').click();await waitFor(()=>!ui.$('analyze').disabled);
+  assert.deepEqual(calls,[{key:'cf-token',provider:'cloudflare',accountId:cfAccount}]);
+  assert.equal(options.model,'clef');assert.equal(options.thresholds,providers.cloudflare.models.clef.thresholds);
+  const diagnostics=JSON.parse(ui.$('diagnostics').value);
+  assert.equal(diagnostics.provider,'cloudflare');assert.equal(diagnostics.model,'clef');assert.deepEqual(diagnostics.thresholds,{...providers.cloudflare.models.clef.thresholds});
+  assert.equal(ui.$('diagnostics').value.includes('cf-token')||ui.$('diagnostics').value.includes('ts-key'),false);
+  ui.$('forget-key').click();await waitFor(()=>!ui.$('forget-key').disabled);
+  assert.deepEqual(plain(ui.saved().keys),{typesafe:'ts-key'});
+  await choose(ui,'typesafe');
+  assert.equal(ui.$('account-field').hidden,true);assert.equal(ui.$('api-key').value,'ts-key');assert.equal(ui.saved().provider,'typesafe');
+  ui.$('analyze').click();await waitFor(()=>!ui.$('analyze').disabled);
+  assert.deepEqual(calls.at(-1),{key:'ts-key',provider:'typesafe',accountId:cfAccount});
+});
+test('switching provider discards proposals made with the previous provider',async()=>{
+  const ui=popup({evaluateFn:async()=>[{id:'f0',field:{label:'Active',kind:'checkbox'},status:'ready',value:false,display:'オフ',reason:'元の文章に一致する候補です。'}]});
+  await waitFor(()=>ui.$('target').textContent.includes('example.com'));
+  ui.$('api-key').value='ts-key';ui.$('source').value='Active: off';ui.$('analyze').click();await waitFor(()=>!ui.$('analyze').disabled);
+  assert.equal(ui.$('apply').disabled,false);assert.equal(ui.$('results').hidden,false);
+  await choose(ui,'cloudflare');
+  assert.equal(ui.$('apply').disabled,true);assert.equal(ui.$('results').hidden,true);assert.equal(ui.$('diagnostics').value,'');
+  assert.equal(ui.$('api-key').value,'');
+});
+test('cloudflare needs a token and a 32-character account id; saved keys of either provider are kept out of the text',async()=>{
+  let calls=0;
+  const ui=popup({initialSaved:{keys:{typesafe:'ts-secret-key'}},call:async()=>{calls++;return {answers:{}};}});
+  await waitFor(()=>ui.$('target').textContent.includes('example.com'));
+  await choose(ui,'cloudflare');
+  ui.$('source').value='Active: off';ui.$('analyze').click();await waitFor(()=>!ui.$('analyze').disabled);
+  assert.match(ui.$('status').textContent,/APIトークンを設定/);
+  ui.$('api-key').value='cf-token';ui.$('account-id').value='not-an-id';ui.$('analyze').click();await waitFor(()=>!ui.$('analyze').disabled);
+  assert.match(ui.$('status').textContent,/Account ID/);
+  ui.$('account-id').value=cfAccount;ui.$('source').value='Active: off ts-secret-key';ui.$('analyze').click();await waitFor(()=>!ui.$('analyze').disabled);
+  assert.match(ui.$('status').textContent,/保存済みのAPIキー・トークンが含まれ/);
+  assert.equal(calls,0);
+  ui.$('remember').checked=true;ui.$('save-key').click();await waitFor(()=>!ui.$('save-key').disabled);
+  assert.deepEqual(plain(ui.saved().keys),{typesafe:'ts-secret-key',cloudflare:'cf-token'});assert.equal(ui.saved().accountId,cfAccount);
+});
+test('editing the account id discards proposals; deleting the cloudflare token also deletes the saved account id',async()=>{
+  const ui=popup({initialSaved:{keys:{cloudflare:'cf-token'},provider:'cloudflare',accountId:cfAccount},evaluateFn:async()=>[{id:'f0',field:{label:'Active',kind:'checkbox'},status:'ready',value:false,display:'オフ',reason:'元の文章に一致する候補です。'}]});
+  await waitFor(()=>ui.$('target').textContent.includes('example.com'));
+  ui.$('source').value='Active: off';ui.$('analyze').click();await waitFor(()=>!ui.$('analyze').disabled);
+  assert.equal(ui.$('apply').disabled,false);
+  ui.$('account-id').value='ffffffffffffffffffffffffffffffff';ui.$('account-id').dispatchEvent(new ui.win.Event('input'));
+  assert.equal(ui.$('apply').disabled,true);assert.equal(ui.$('results').hidden,true);
+  ui.$('remember').checked=false;ui.$('save-key').click();await waitFor(()=>!ui.$('save-key').disabled);
+  assert.deepEqual(plain(ui.saved().keys),{});assert.equal(ui.saved().accountId,'');
+  ui.$('api-key').value='cf-token';ui.$('remember').checked=true;ui.$('save-key').click();await waitFor(()=>!ui.$('save-key').disabled);
+  assert.equal(ui.saved().accountId,'ffffffffffffffffffffffffffffffff');
+  ui.$('forget-key').click();await waitFor(()=>!ui.$('forget-key').disabled);
+  assert.deepEqual(plain(ui.saved()),{provider:'cloudflare',keys:{},accountId:''});
+});
+test('a storage failure while switching provider still swaps the key field, so the old key is never sent to the new host',async()=>{
+  const calls=[];
+  const ui=popup({initialSaved:{keys:{typesafe:'ts-key'},accountId:cfAccount},evaluateFn:async(source,fields,request)=>{await request({});return [];},call:async(body,key,opts)=>{calls.push([key,opts.provider.id]);return {answers:{}};}});
+  await waitFor(()=>ui.$('target').textContent.includes('example.com'));
+  ui.win.chrome.storage.local.set=async()=>{throw new Error('quota');};
+  await choose(ui,'cloudflare');
+  assert.equal(ui.$('api-key').value,'');
+  ui.$('source').value='Active: off';ui.$('analyze').click();await waitFor(()=>!ui.$('analyze').disabled);
+  assert.deepEqual(calls,[]);assert.match(ui.$('status').textContent,/APIトークンを設定/);
+});
+test('saving a cloudflare token with an invalid account id saves nothing',async()=>{
+  const ui=popup({initialSaved:{provider:'cloudflare',accountId:cfAccount}});
+  await waitFor(()=>ui.$('target').textContent.includes('example.com'));
+  ui.$('api-key').value='cf-token';ui.$('account-id').value='short';ui.$('remember').checked=true;ui.$('save-key').click();await waitFor(()=>!ui.$('save-key').disabled);
+  assert.match(ui.$('status').textContent,/Account ID/);
+  assert.deepEqual(plain(ui.saved()),{provider:'cloudflare',accountId:cfAccount});
+});
+test('keys and the account id are written in one storage call without remove, and a failed write changes nothing',async()=>{
+  const ui=popup({initialSaved:{keys:{cloudflare:'old-token'},provider:'cloudflare',accountId:cfAccount}});
+  await waitFor(()=>ui.$('target').textContent.includes('example.com'));
+  const writes=[];let fail=false;
+  const local=ui.win.chrome.storage.local,set=local.set;
+  local.set=async x=>{writes.push(Object.keys(x).sort());if(fail) throw new Error('quota');return set(x);};
+  local.remove=async key=>{throw new Error(`remove ${key}`);};
+  ui.$('api-key').value='new-token';ui.$('account-id').value='ffffffffffffffffffffffffffffffff';ui.$('remember').checked=true;
+  fail=true;ui.$('save-key').click();await waitFor(()=>!ui.$('save-key').disabled);
+  assert.match(ui.$('status').textContent,/quota/);
+  assert.deepEqual(plain(ui.saved()),{keys:{cloudflare:'old-token'},provider:'cloudflare',accountId:cfAccount});
+  fail=false;ui.$('save-key').click();await waitFor(()=>!ui.$('save-key').disabled);
+  assert.deepEqual(plain(ui.saved()),{keys:{cloudflare:'new-token'},provider:'cloudflare',accountId:'ffffffffffffffffffffffffffffffff'});
+  ui.$('forget-key').click();await waitFor(()=>!ui.$('forget-key').disabled);
+  assert.deepEqual(plain(ui.saved()),{keys:{},provider:'cloudflare',accountId:''});
+  assert.deepEqual(writes,[['accountId','keys'],['accountId','keys'],['accountId','keys']]);
+});
+test('an empty saved account id reads as missing',async()=>{
+  const ui=popup({initialSaved:{keys:{cloudflare:'cf-token'},provider:'cloudflare',accountId:''}});
+  await waitFor(()=>ui.$('target').textContent.includes('example.com'));
+  assert.equal(ui.$('account-id').value,'');
+  ui.$('source').value='Active: off';ui.$('analyze').click();await waitFor(()=>!ui.$('analyze').disabled);
+  assert.match(ui.$('status').textContent,/Account ID/);
+});
+test('an invalid saved account id reads as missing',async()=>{
+  const ui=popup({initialSaved:{keys:{cloudflare:'cf-token'},provider:'cloudflare',accountId:'not-a-valid-id'}});
+  await waitFor(()=>ui.$('target').textContent.includes('example.com'));
+  assert.equal(ui.$('account-id').value,'');
+  ui.$('source').value='Active: off';ui.$('analyze').click();await waitFor(()=>!ui.$('analyze').disabled);
+  assert.match(ui.$('status').textContent,/Account ID/);
+});
+test('saving one provider keeps what another popup saved in the meantime',async()=>{
+  const ui=popup({initialSaved:{keys:{typesafe:'ts-key'}}});
+  await waitFor(()=>ui.$('target').textContent.includes('example.com'));
+  await ui.win.chrome.storage.local.set({keys:{typesafe:'ts-key',cloudflare:'cf-other'},accountId:cfAccount});
+  ui.$('api-key').value='ts-new';ui.$('remember').checked=true;ui.$('save-key').click();await waitFor(()=>!ui.$('save-key').disabled);
+  assert.deepEqual(plain(ui.saved()),{keys:{typesafe:'ts-new',cloudflare:'cf-other'},accountId:cfAccount});
+  ui.$('forget-key').click();await waitFor(()=>!ui.$('forget-key').disabled);
+  assert.deepEqual(plain(ui.saved()),{keys:{cloudflare:'cf-other'},accountId:cfAccount});
+});
+test('a key typed for another provider but never saved is still kept out of the text',async()=>{
+  let calls=0;
+  const ui=popup({call:async()=>{calls++;return {answers:{}};}});
+  await waitFor(()=>ui.$('target').textContent.includes('example.com'));
+  ui.$('api-key').value='ts-unsaved-secret';
+  await choose(ui,'cloudflare');
+  ui.$('api-key').value='cf-token';ui.$('account-id').value=cfAccount;ui.$('source').value='Active: off ts-unsaved-secret';ui.$('analyze').click();await waitFor(()=>!ui.$('analyze').disabled);
+  assert.match(ui.$('status').textContent,/APIキー・トークンが含まれ/);
+  assert.equal(calls,0);
+});
+test('a legacy apiKey wins over an older keys.typesafe left by a downgrade',async()=>{
+  const ui=popup({initialSaved:{apiKey:'newer-key',keys:{typesafe:'older-key'}}});
+  await waitFor(()=>ui.$('target').textContent.includes('example.com'));
+  assert.equal(ui.saved().keys.typesafe,'newer-key');assert.equal(ui.saved().apiKey,undefined);
+});
+test('Cloudflare defaults to Clef for existing users; switching model saves it in one write and drops proposals',async()=>{
+  const calls=[];let options;
+  const ui=popup({initialSaved:{keys:{cloudflare:'cf-token'},provider:'cloudflare',accountId:cfAccount},
+    evaluateFn:async(source,fields,request,progress,opts)=>{options=opts;await request({});return [{id:'f0',field:{label:'Active',kind:'checkbox'},status:'ready',value:false,display:'オフ',reason:'元の文章に一致する候補です。'}];},
+    call:async(body,key,opts)=>{calls.push([key,opts.provider.model,opts.provider.url({accountId:opts.accountId})]);return {answers:{}};}});
+  await waitFor(()=>ui.$('target').textContent.includes('example.com'));
+  assert.equal(ui.$('model-field').hidden,false);assert.equal(ui.$('model').value,'clef');
+  assert.deepEqual(plain(ui.saved()),{keys:{cloudflare:'cf-token'},provider:'cloudflare',accountId:cfAccount});
+  ui.$('source').value='Active: off';ui.$('analyze').click();await waitFor(()=>!ui.$('analyze').disabled);
+  assert.equal(options.model,'clef');assert.equal(JSON.parse(ui.$('diagnostics').value).model,'clef');
+  assert.equal(ui.$('apply').disabled,false);
+  const writes=[];const set=ui.win.chrome.storage.local.set;ui.win.chrome.storage.local.set=async x=>{writes.push(plain(x));return set(x);};
+  ui.$('model').value='clef-flash';ui.$('model').dispatchEvent(new ui.win.Event('change'));await waitFor(()=>!ui.$('model').disabled);
+  assert.deepEqual(writes,[{models:{cloudflare:'clef-flash'}}]);
+  assert.equal(ui.$('apply').disabled,true);assert.equal(ui.$('results').hidden,true);
+  assert.equal(ui.$('api-key').value,'cf-token');assert.equal(ui.saved().keys.cloudflare,'cf-token');
+  ui.$('analyze').click();await waitFor(()=>!ui.$('analyze').disabled);
+  assert.equal(options.model,'clef-flash');assert.deepEqual({...options.thresholds},{...providers.cloudflare.models['clef-flash'].thresholds});
+  assert.equal(JSON.parse(ui.$('diagnostics').value).model,'clef-flash');
+  assert.deepEqual(calls.map(x=>x.slice(0,2)),[['cf-token','clef'],['cf-token','clef-flash']]);
+  assert.match(calls[1][2],/@cf\/cloudflare\/clef-flash$/);
+});
+test('a saved model is restored, an unknown one falls back to Clef, and TypeSafe shows no model choice',async()=>{
+  const flash=popup({initialSaved:{provider:'cloudflare',models:{cloudflare:'clef-flash'}}});
+  await waitFor(()=>flash.$('target').textContent.includes('example.com'));
+  assert.equal(flash.$('model').value,'clef-flash');
+  const unknown=popup({initialSaved:{provider:'cloudflare',models:{cloudflare:'gone'}}});
+  await waitFor(()=>unknown.$('target').textContent.includes('example.com'));
+  assert.equal(unknown.$('model').value,'clef');
+  const typesafe=popup({});
+  await waitFor(()=>typesafe.$('target').textContent.includes('example.com'));
+  assert.equal(typesafe.$('model-field').hidden,true);
+});
+test('switching model keeps an unsaved token and the save choice as typed',async()=>{
+  const ui=popup({initialSaved:{keys:{cloudflare:'old'},provider:'cloudflare',accountId:cfAccount}});
+  await waitFor(()=>ui.$('target').textContent.includes('example.com'));
+  ui.$('api-key').value='typed-new-token';ui.$('remember').checked=false;
+  ui.$('model').value='clef-flash';ui.$('model').dispatchEvent(new ui.win.Event('change'));await waitFor(()=>!ui.$('model').disabled);
+  assert.equal(ui.$('api-key').value,'typed-new-token');assert.equal(ui.$('remember').checked,false);assert.equal(ui.$('model').value,'clef-flash');
 });

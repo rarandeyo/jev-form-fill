@@ -1,6 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { passages, tokens, acceptChoice, propose, evaluate } from '../core.js';
+import { profileOf } from '../providers.js';
+const PROFILE = profileOf('typesafe');
 
 const yes = (choice, criteria, rest = {}) => ({type:'choice',choice,confidence:0.97,probabilities:Object.fromEntries(Object.keys(criteria).map(key=>[key,key===choice?0.98:0.02/(Object.keys(criteria).length-1)])),...rest});
 test('source offsets preserve Japanese, multiline and exact punctuation', () => {
@@ -107,4 +109,82 @@ test('skipped rows retain the rejected stage and probabilities for diagnosis',as
 test('bounds are enforced rather than silently truncating user instructions', () => {
   assert.throws(() => passages('x'.repeat(12001)),/12,000/);
   assert.throws(() => passages(Array.from({length:121},(_,i)=>`line ${i}`).join('\n')),/120/);
+});
+test('custom thresholds reach every gate and the default stays the Jev profile',async()=>{
+  const criteria={skip:'unknown',on:'on',off:'off'};
+  const modest={type:'choice',choice:'off',confidence:0.6,probabilities:{skip:0.05,on:0.05,off:0.9}};
+  assert.equal(acceptChoice(modest,criteria),null);
+  assert.equal(acceptChoice(modest,criteria,{...PROFILE.thresholds,confidence:0.5}),'off');
+  const field={id:'f0',kind:'checkbox',label:'Active'};
+  const models=[];
+  const run=options=>evaluate('Active: off',[field],async body=>{models.push(body.model);return body.questions.f0.type==='noul'?{answers:{f0:{type:'noul',noul:0.85}}}:{answers:{f0:{...modest,probabilities:Object.fromEntries(Object.keys(body.questions.f0.criteria).map(k=>[k,k==='off'?0.9:0.05]))}}};},()=>{},options);
+  assert.equal((await run())[0].status,'skip');
+  assert.deepEqual(models,['jev-latest']);
+  models.length=0;
+  assert.equal((await run({model:'clef-flash',thresholds:{...PROFILE.thresholds,confidence:0.5}}))[0].status,'skip');
+  const lowered=await run({model:'clef-flash',thresholds:{...PROFILE.thresholds,confidence:0.5,noul:0.8}});
+  assert.equal(lowered[0].status,'ready');assert.equal(lowered[0].value,false);
+  assert.ok(models.length>=3 && models.every(x=>x==='clef-flash'));
+});
+test('lowered thresholds reach value and range-extraction gates, and noul reaches quoted values',async()=>{
+  const modest=(choice,criteria)=>({type:'choice',choice,confidence:0.6,probabilities:Object.fromEntries(Object.keys(criteria).map(k=>[k,k===choice?0.9:0.1/(Object.keys(criteria).length-1)]))});
+  const lowered={...PROFILE.thresholds,confidence:0.5};
+  const field={id:'f0',kind:'text',label:'App name'};
+  const extract=async thresholds=>{
+    let calls=0;
+    return evaluate('App name: sweep-pr (or a fallback)',[field],async body=>{
+      calls++;
+      if(calls===1) return {answers:{f0:modest('p0',body.questions.f0.criteria)}};
+      if(calls===2) return {answers:{f0:modest('extract',body.questions.f0.criteria)}};
+      if(calls===3) {const c=body.questions.f0_start.criteria;const k=Object.keys(c).find(key=>c[key]==='sweep-pr');return {answers:{f0_start:modest(k,c),f0_end:modest(k,body.questions.f0_end.criteria)}};}
+      return {answers:{f0:{type:'noul',noul:0.95}}};
+    },()=>{},{model:'clef-flash',thresholds});
+  };
+  assert.equal((await extract(undefined))[0].status,'skip');
+  const rows=await extract(lowered);
+  assert.equal(rows[0].status,'ready');assert.equal(rows[0].value,'sweep-pr');
+  assert.equal(rows[0].diagnostics.find(x=>x.stage==='value').accepted,true);
+  assert.equal(rows[0].diagnostics.find(x=>x.stage==='start').accepted,true);
+  const quoted=thresholds=>evaluate('App name: `sweep-pr`',[field],async body=>body.questions.f0.type==='noul'?{answers:{f0:{type:'noul',noul:0.85}}}:{answers:{f0:modest(body.questions.f0.criteria.v0?'v0':'p0',body.questions.f0.criteria)}},()=>{},{thresholds});
+  assert.equal((await quoted(undefined))[0].status,'skip');
+  assert.equal((await quoted({...lowered,noul:0.8}))[0].value,'sweep-pr');
+});
+test('a leading symbol token such as 〒 is dropped from an extracted range, and a symbol-only range is skipped',async()=>{
+  const source='住所：〒150-0041 東京都渋谷区神南1-2-3 みなもビル4F';
+  const field={id:'f0',kind:'text',label:'ZIP / Postal code'};
+  const run=(first,last)=>{const verified=[];return evaluate(source,[field],async body=>{
+    const q=body.questions;
+    if(q.f0?.type==='noul'){verified.push(body.state.proposals[0].value);return {answers:{f0:{type:'noul',noul:0.95}}};}
+    if(q.f0_start){const pick=text=>Object.keys(q.f0_start.criteria).find(k=>q.f0_start.criteria[k]===text);return {answers:{f0_start:yes(pick(first),q.f0_start.criteria),f0_end:yes(pick(last),q.f0_end.criteria)}};}
+    return {answers:{f0:yes(q.f0.criteria.p0?'p0':'extract',q.f0.criteria)}};
+  }).then(rows=>({rows,verified}));};
+  const kept=await run('〒','150-0041');
+  assert.equal(kept.rows[0].status,'ready');assert.equal(kept.rows[0].value,'150-0041');assert.deepEqual(kept.verified,['150-0041']);
+  assert.ok(source.includes(kept.rows[0].value));
+  const only=await run('〒','〒');
+  assert.equal(only.rows[0].status,'skip');assert.deepEqual(only.verified,[]);
+});
+test('markers with a variation selector are dropped, quoted values lose them too, and ㈱ or № stay in the value',async()=>{
+  const field={id:'f0',kind:'text',label:'Value'};
+  const range=(source,first,last)=>evaluate(source,[field],async body=>{
+    const q=body.questions;
+    if(q.f0?.type==='noul') return {answers:{f0:{type:'noul',noul:0.95}}};
+    if(q.f0_start){const pick=text=>Object.keys(q.f0_start.criteria).find(k=>q.f0_start.criteria[k]===text);return {answers:{f0_start:yes(pick(first),q.f0_start.criteria),f0_end:yes(pick(last),q.f0_end.criteria)}};}
+    return {answers:{f0:yes(q.f0.criteria.p0?'p0':'extract',q.f0.criteria)}};
+  });
+  assert.equal((await range('電話：☎️ 03-1234-5678','☎','03-1234-5678'))[0].value,'03-1234-5678');
+  assert.equal((await range('会社名：㈱みなも','㈱','みなも'))[0].value,'㈱みなも');
+  assert.equal((await range('番号：№123','№','123'))[0].value,'№123');
+  assert.equal((await range('温度：°C','°','C'))[0].value,'°C');
+  assert.equal((await range('電話：℡ 03-1234-5678','℡','03-1234-5678'))[0].value,'03-1234-5678');
+  const quoted=source=>evaluate(source,[field],async body=>{
+    const q=body.questions;
+    if(q.f0?.type==='noul') return {answers:{f0:{type:'noul',noul:0.95}}};
+    return {answers:{f0:yes(q.f0.criteria.p0?'p0':'v0',q.f0.criteria)}};
+  });
+  assert.equal((await quoted('郵便番号：「〒150-0041」'))[0].value,'150-0041');
+  assert.equal((await quoted('郵便番号：「〒」'))[0].status,'skip');
+  assert.equal((await quoted('会社名：「㈱みなも」'))[0].value,'㈱みなも');
+  assert.equal((await quoted('Code: `  ABC`'))[0].value,'  ABC');
+  assert.equal((await quoted('会社名：「㍿みなも」'))[0].value,'㍿みなも');
 });

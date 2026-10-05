@@ -36,8 +36,24 @@ export const messages = {
     "ja": "文章を消す"
   },
   "keySettings": {
-    "en": "API key settings",
-    "ja": "APIキーの設定"
+    "en": "Connection settings",
+    "ja": "接続先とキーの設定"
+  },
+  "providerLabel": {
+    "en": "Model provider",
+    "ja": "接続先"
+  },
+  "modelLabel": {
+    "en": "Model",
+    "ja": "モデル"
+  },
+  "accountLabel": {
+    "en": "Cloudflare Account ID",
+    "ja": "CloudflareのAccount ID"
+  },
+  "tokenLabel": {
+    "en": "Cloudflare API token",
+    "ja": "Cloudflare APIトークン"
   },
   "keyLabel": {
     "en": "TypeSafe API key",
@@ -64,12 +80,12 @@ export const messages = {
     "ja": "保存したキーを削除"
   },
   "privacy": {
-    "en": "Creating proposals sends your text and field names/options to TypeSafe. API charges may apply. Existing field values are not sent.",
-    "ja": "候補の作成時に、文章とフォームの項目名・選択肢をTypeSafeへ送信します。API利用料が発生する場合があります。既存の入力値は送りません。"
+    "en": "Creating proposals sends your text and field names/options to {provider}. API charges may apply. Existing field values are not sent.",
+    "ja": "候補の作成時に、文章とフォームの項目名・選択肢を{provider}へ送信します。API利用料が発生する場合があります。既存の入力値は送りません。"
   },
   "analyze": {
-    "en": "Create proposals with TypeSafe",
-    "ja": "TypeSafeへ送って候補を作る"
+    "en": "Create proposals with {provider}",
+    "ja": "{provider}へ送って候補を作る"
   },
   "cancel": {
     "en": "Cancel",
@@ -192,8 +208,16 @@ export const messages = {
     "ja": "TypeSafeのAPIキーを設定してください。"
   },
   "sourceHasKey": {
-    "en": "The text contains your configured API key. Remove it first.",
-    "ja": "文章に設定済みのAPIキーが含まれています。取り除いてください。"
+    "en": "The text contains a configured or saved API key or token. Remove it first.",
+    "ja": "文章に設定済みまたは保存済みのAPIキー・トークンが含まれています。取り除いてください。"
+  },
+  "needToken": {
+    "en": "Set your Cloudflare Workers AI API token.",
+    "ja": "Cloudflare Workers AIのAPIトークンを設定してください。"
+  },
+  "badAccountId": {
+    "en": "Enter the Account ID as 32 letters and digits.",
+    "ja": "Account IDは32文字の英数字で入力してください。"
   },
   "needSource": {
     "en": "Enter the source text.",
@@ -338,6 +362,10 @@ export const messages = {
   "apiError": {
     "en": "API error ({code})",
     "ja": "APIエラー ({code})"
+  },
+  "dailyLimit": {
+    "en": "The API's daily allowance is used up.",
+    "ja": "APIの1日の利用枠を使い切りました。"
   },
   "malformed": {
     "en": "The API did not return valid answers.",

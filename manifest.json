@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "__MSG_extensionName__",
-  "version": "0.1.5",
+  "version": "0.2.0",
   "description": "__MSG_extensionDescription__",
   "minimum_chrome_version": "116",
   "permissions": [
@@ -11,14 +11,15 @@
     "clipboardRead"
   ],
   "host_permissions": [
-    "https://api.typesafe.ai/*"
+    "https://api.typesafe.ai/*",
+    "https://api.cloudflare.com/*"
   ],
   "action": {
     "default_title": "__MSG_extensionName__",
     "default_popup": "popup.html"
   },
   "content_security_policy": {
-    "extension_pages": "script-src 'self'; object-src 'none'; connect-src https://api.typesafe.ai"
+    "extension_pages": "script-src 'self'; object-src 'none'; connect-src https://api.typesafe.ai https://api.cloudflare.com"
   },
   "default_locale": "en"
 }

@@ -1,0 +1,16 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Create your account (fictional)</title><style>body{font:15px/1.6 system-ui,sans-serif;max-width:640px;margin:32px auto;padding:0 20px;color:#1f2d33}label{display:block;margin:10px 0}input:not([type=checkbox]),select{display:block;width:100%;box-sizing:border-box;padding:7px;border:1px solid #b9c7cd;border-radius:6px;font:inherit}.row{display:flex;gap:12px}.row label{flex:1}h2{font-size:17px;margin-top:22px}</style></head><body><h1>Create your account</h1><p><small>Fictional practice form. Nothing is sent.</small></p>
+<form>
+<h2>Your details</h2>
+<div class="row"><label>First name <input name="first_name" autocomplete="given-name"></label><label>Last name <input name="last_name" autocomplete="family-name"></label></div>
+<label>Full name (as shown on your card) <input name="full_name" autocomplete="name"></label>
+<label>Email address <input type="email" name="email" autocomplete="email"></label>
+<label>Phone number <input type="tel" name="phone" autocomplete="tel"></label>
+<label>Company <input name="company" autocomplete="organization"></label>
+<h2>Billing address</h2>
+<label>Address line 1 <input name="address1" autocomplete="address-line1"></label>
+<label>Address line 2 <input name="address2" autocomplete="address-line2"></label>
+<div class="row"><label>City <input name="city" autocomplete="address-level2"></label><label>State / Prefecture <input name="state" autocomplete="address-level1"></label></div>
+<div class="row"><label>ZIP / Postal code <input name="postal" autocomplete="postal-code"></label><label>Country <select name="country" autocomplete="country"><option value="">Select a country</option><option value="US">United States</option><option value="GB">United Kingdom</option><option value="JP">Japan</option><option value="KR">South Korea</option></select></label></div>
+<label><input type="checkbox" name="marketing"> Send me product updates</label>
+<button type="button">Create account (does nothing)</button>
+</form></body></html>

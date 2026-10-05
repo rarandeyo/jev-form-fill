@@ -1,22 +1,48 @@
 import {evaluate} from './core.js';
 import {pageCommand} from './page.js';
 import {callJev} from './client.js';
+import {providers,providerOf,modelOf,profileOf,validAccountId,DEFAULT_PROVIDER} from './providers.js';
 import {resolveLanguage,translator,localizeMessage} from './i18n.js';
 const $=id=>document.getElementById(id);
-let tabId,plan=null,rows=[],controller=null,busy=false,sourceVersion=0;
+let tabId,plan=null,rows=[],controller=null,busy=false,sourceVersion=0,provider=providers[DEFAULT_PROVIDER],usedProfile=null,savedKeys={},drafts={},chosenModels={};
 const browserLanguage=chrome.i18n?.getUILanguage?.()||navigator.language||'en';
 let language=resolveLanguage(undefined,browserLanguage),t=translator(language);
 const status=(text,error=false)=>{$('status').textContent=localizeMessage(text,language);$('status').classList.toggle('error',error);};
-function buttons(value) {busy=value;for(const id of ['analyze','apply','undo','clipboard','save-key','forget-key','clear','api-key','remember','language']) $(id).disabled=value; $('source').readOnly=value;document.querySelectorAll('#rows input').forEach(x=>{x.disabled=value;});$('cancel').hidden=!value; $('apply').disabled=value || !plan || !rows.some(x=>x.status==='ready');}
+function buttons(value) {busy=value;for(const id of ['analyze','apply','undo','clipboard','save-key','forget-key','clear','api-key','remember','language','provider','model','account-id']) $(id).disabled=value; $('source').readOnly=value;document.querySelectorAll('#rows input').forEach(x=>{x.disabled=value;});$('cancel').hidden=!value; $('apply').disabled=value || !plan || !rows.some(x=>x.status==='ready');}
 function localizeUI() {
   document.documentElement.lang=language;
-  document.querySelectorAll('[data-i18n]').forEach(element=>{element.textContent=t(element.dataset.i18n);});
-  document.querySelectorAll('[data-i18n-placeholder]').forEach(element=>{element.placeholder=t(element.dataset.i18nPlaceholder);});
+  document.querySelectorAll('[data-i18n]').forEach(element=>{element.textContent=t(element.dataset.i18n,{provider:provider.name});});
+  document.querySelectorAll('[data-i18n-placeholder]').forEach(element=>{element.placeholder=t(element.dataset.i18nPlaceholder,{provider:provider.name});});
   document.querySelectorAll('[data-i18n-aria]').forEach(element=>{element.setAttribute('aria-label',t(element.dataset.i18nAria));});
   $('target').textContent=localizeMessage($('target').textContent,language);
   $('status').textContent=localizeMessage($('status').textContent,language);
 }
 function invalidate(){sourceVersion++;plan=null;rows=[];$('apply').disabled=true;$('results').hidden=true;$('diagnostics').value='';}
+for(const item of Object.values(providers)){const option=document.createElement('option');option.value=item.id;option.textContent=item.name;$('provider').append(option);}
+function showProvider() {
+  $('provider').value=provider.id;$('account-field').hidden=!provider.usesAccountId;$('key-label').dataset.i18n=provider.keyLabel;
+  $('api-key').value=drafts[provider.id]||'';$('remember').checked=Boolean(savedKeys[provider.id]);
+  const models=Object.values(provider.models);$('model-field').hidden=models.length<2;
+  $('model').replaceChildren(...models.map(item=>{const option=document.createElement('option');option.value=item.id;option.textContent=item.name;return option;}));
+  $('model').value=modelOf(provider,chosenModels[provider.id]).id;localizeUI();
+}
+const validModels=models=>Object.fromEntries(Object.entries(models&&typeof models==='object'?models:{}).filter(([id,model])=>Object.hasOwn(providers,id)&&typeof model==='string'&&Object.hasOwn(providers[id].models,model)));
+const validKeys=keys=>Object.fromEntries(Object.entries(keys&&typeof keys==='object'?keys:{}).filter(([id,key])=>Object.hasOwn(providers,id)&&typeof key==='string'&&key));
+// Keys and the account id go in one write so a failure cannot leave a token paired with another account id.
+// The account id is kept only while a saved token uses it; '' means none.
+async function writeCredentials(keys,accountId) {
+  const next={keys:validKeys(keys)};
+  next.accountId=Object.keys(next.keys).some(id=>providers[id].usesAccountId)&&validAccountId(accountId)?accountId:'';
+  await chrome.storage.local.set(next);
+  savedKeys=next.keys;
+}
+// Starts from storage, not this popup's copy, so a save made from another window's popup is kept.
+async function updateCredentials(id,key,accountId) {
+  const stored=await chrome.storage.local.get(['keys','accountId']);
+  const keys=validKeys(stored.keys);
+  if(key) keys[id]=key;else delete keys[id];
+  await writeCredentials(keys,providers[id].usesAccountId?accountId:stored.accountId);
+}
 async function command(request) {
   if (!tabId) throw new Error('対象ページを開いてから、拡張機能を開き直してください。');
   const result=await chrome.scripting.executeScript({target:{tabId},func:pageCommand,args:[request],world:'ISOLATED'});
@@ -42,7 +68,7 @@ function render(selectedIds=null) {
   }
   const ready=rows.filter(x=>x.status==='ready').length;
   $('count').textContent=t('count',{ready,total:rows.length});$('results').hidden=false;
-  $('diagnostics').value=JSON.stringify({version:chrome.runtime?.getManifest?.().version||'0.1.5',language,source:$('source').value,rows},null,2);
+  $('diagnostics').value=JSON.stringify({version:chrome.runtime?.getManifest?.().version||'0.2.0',language,provider:usedProfile?.id,model:usedProfile?.model,thresholds:usedProfile?.thresholds,source:$('source').value,rows},null,2);
 }
 $('language').addEventListener('change',()=>run(async()=>{
   const selectedIds=new Set([...document.querySelectorAll('#rows input:checked')].map(x=>x.dataset.fieldId));
@@ -58,27 +84,46 @@ $('clipboard').addEventListener('click',async()=>{
   catch{status('クリップボードを読めませんでした。文章欄に貼り付けてください。',true);}
 });
 $('cancel').addEventListener('click',()=>controller?.abort());
+$('provider').addEventListener('change',()=>run(async()=>{
+  drafts[provider.id]=$('api-key').value;
+  provider=providerOf($('provider').value);
+  invalidate();showProvider();
+  await chrome.storage.local.set({provider:provider.id});
+}));
+// The model is a preference like the provider: saved on change, one write, and proposals from the other model are dropped.
+$('model').addEventListener('change',()=>run(async()=>{
+  // Only the model changes; the key and save choice being typed stay as they are.
+  chosenModels={...chosenModels,[provider.id]:modelOf(provider,$('model').value).id};
+  invalidate();
+  await chrome.storage.local.set({models:chosenModels});
+}));
+$('account-id').addEventListener('input',invalidate);
 async function saveKey() {
-  const key=$('api-key').value.trim();
-  if($('remember').checked && key) await chrome.storage.local.set({apiKey:key});
-  else await chrome.storage.local.remove('apiKey');
+  const key=$('api-key').value.trim(),accountId=$('account-id').value.trim();
+  drafts[provider.id]=key;
+  const remember=$('remember').checked && key;
+  const problem=remember?provider.settingsError({key,accountId}):null;
+  if(problem) {$('settings').open=true;throw new Error(problem);}
+  await updateCredentials(provider.id,remember?key:'',accountId);
 }
 $('save-key').addEventListener('click',()=>run(async()=>{await saveKey();status($('remember').checked?'APIキーをこのブラウザに保存しました。':'キーはこの画面だけで使用します。保存済みのキーは削除しました。');}));
-$('forget-key').addEventListener('click',()=>run(async()=>{await chrome.storage.local.remove('apiKey');$('api-key').value='';$('remember').checked=false;invalidate();status('APIキーを削除しました。');}));
+$('forget-key').addEventListener('click',()=>run(async()=>{await updateCredentials(provider.id,'','');drafts[provider.id]='';$('api-key').value='';$('remember').checked=false;invalidate();status('APIキーを削除しました。');}));
 $('analyze').addEventListener('click',()=>run(async()=>{
   invalidate();
-  const key=$('api-key').value.trim(),source=$('source').value,version=sourceVersion;
-  if(!key) {$('settings').open=true;throw new Error('TypeSafeのAPIキーを設定してください。');}
-  if(source.includes(key)) throw new Error('文章に設定済みのAPIキーが含まれています。取り除いてください。');
+  const key=$('api-key').value.trim(),accountId=$('account-id').value.trim(),source=$('source').value,version=sourceVersion,current=profileOf(provider.id,chosenModels[provider.id]);
+  const problem=current.settingsError({key,accountId});
+  if(problem) {$('settings').open=true;throw new Error(problem);}
+  // No key entered in this popup (for any provider) nor any saved key may travel inside the text to whichever host is selected.
+  if([key,...Object.values(drafts),...Object.values(savedKeys)].map(x=>x?.trim()).some(x=>x&&source.includes(x))) throw new Error('文章に設定済みまたは保存済みのAPIキー・トークンが含まれています。取り除いてください。');
   if(!source.trim()) throw new Error('元の文章を入力してください。');
   controller=new AbortController();
   const signal=controller.signal;
   const scan=await command({op:'scan'});
   if(!scan.fields.length) throw new Error('対応するフォーム項目が見つかりませんでした。折りたたまれた項目を開いてから、もう一度試してください。');
-  const analyzed=await evaluate(source,scan.fields,body=>callJev(body,key,{signal}),message=>status(message));
+  const analyzed=await evaluate(source,scan.fields,body=>callJev(body,key,{signal,provider:current,accountId}),message=>status(message),{model:current.model,thresholds:current.thresholds});
   signal.throwIfAborted();
   if (version!==sourceVersion || source!==$('source').value) throw new Error('文章が変わりました。もう一度候補を作ってください。');
-  rows=analyzed;
+  rows=analyzed;usedProfile=current;
   plan=scan;render();
   status(t(scan.unsupported?'proposalsReadyUnsupported':'proposalsReady'));
 }));
@@ -99,7 +144,13 @@ async function initialize() {
   localizeUI();
   try {
     await chrome.storage.local.setAccessLevel({accessLevel:'TRUSTED_CONTEXTS'});
-    const stored=await chrome.storage.local.get(['apiKey','uiLanguage']);$('api-key').value=stored.apiKey||'';$('remember').checked=Boolean(stored.apiKey);$('settings').open=!stored.apiKey;
+    const stored=await chrome.storage.local.get(['apiKey','keys','provider','models','accountId','uiLanguage']);
+    const keys=validKeys(stored.keys);
+    const savedAccountId=typeof stored.accountId==='string'&&validAccountId(stored.accountId)?stored.accountId:'';
+    if(typeof stored.apiKey==='string') {if(stored.apiKey) keys.typesafe=stored.apiKey;await writeCredentials(keys,savedAccountId);await chrome.storage.local.remove('apiKey');}
+    else savedKeys=keys;
+    drafts={...savedKeys};chosenModels=validModels(stored.models);provider=providerOf(stored.provider);$('account-id').value=savedAccountId;
+    showProvider();$('settings').open=!savedKeys[provider.id];
     const preference=['en','ja'].includes(stored.uiLanguage)?stored.uiLanguage:'auto';
     $('language').value=preference;language=resolveLanguage(preference,browserLanguage);t=translator(language);localizeUI();
     const [tab]=await chrome.tabs.query({active:true,currentWindow:true});
