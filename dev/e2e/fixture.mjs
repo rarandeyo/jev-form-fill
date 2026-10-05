@@ -1,4 +1,4 @@
-// Fixtures for the browser run: the tuning forms from dev/forms.mjs plus the lab (validation).
+// Fixtures for the browser run: every fixture in dev/forms.mjs plus the lab (validation).
 //   node dev/e2e/fixture.mjs state <name>   -> JS expression that returns the page's field state as JSON
 //   node dev/e2e/fixture.mjs grade <name> <dir> [minimum]
 //     reads <dir>/<name>-{initial,filled,undone}.json and -status-analyze.txt, prints the grade;
@@ -40,7 +40,7 @@ async function main([command,name,dir,minimum='0']) {
   const analyzed=/^"?(Proposals ready|候補を作成しました)/.test(await readFile(`${dir}/${name}-status-analyze.txt`,'utf8'));
   let result;
   if(name==='lab') {result=gradeLab(initial,filled,undone);result.strong=result.wrong===0&&result.protectionChanged===0;}
-  else {result=grade(fixture.expected,initial,filled);result.strong=result.wrong===0;}
+  else {result=grade(fixture.expected,initial,filled,fixture.limits);result.strong=result.wrong===0;}
   if(name!=='lab') result.notRestored=Object.keys(fixture.expected).filter(key=>undone[key]!==initial[key]);
   // A failed analysis leaves the page untouched, which must not read as a pass.
   result.analyzed=analyzed;result.strong=result.strong&&analyzed&&result.notRestored.length===0;

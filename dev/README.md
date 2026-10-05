@@ -9,7 +9,7 @@ node dev/measure-thresholds.mjs 2
 node dev/measure-thresholds.mjs 1 japan
 ```
 
-Runs the tuning fixtures defined in `dev/forms.mjs` through Clef and prints how many required changes and wrong fills each confidence value gives. Raw decisions go to the Git-ignored `.local/thresholds/`. Results and limits are in [docs/validation.md](../docs/validation.md).
+Runs a fixture set from `dev/forms.mjs` (the tuning set by default, or `japan`) through Clef. It prints how many required changes and wrong fills each confidence value gives, then each field at Clef's threshold with the gate that stopped it and what a stopped proposal would have written. Fixtures whose source ends in a newline are also run without it (`<name>-nonl`). Raw decisions go to the Git-ignored `.local/thresholds/`. Results and limits are in [docs/validation.md](../docs/validation.md).
 
 ## Browser run
 
@@ -47,7 +47,7 @@ dev/e2e/run-fixture.zsh 9343 $EXT contact-ja http://127.0.0.1:8765/contact-form-
 dev/e2e/run-fixture.zsh 9343 $EXT lab http://127.0.0.1:8766/ "$WORK/out" 25
 ```
 
-`contact-ja-nonl` is contact-ja without the final newline, the case Clef's confidence of 0.70 changes (the email is filled). The Japanese and English observation fixtures in the `japan` set of `dev/forms.mjs` (for example `jp-list` or `en-list` on `jp-application-form.html` / `en-signup-form.html`) run the same way; their minimums are the Node results in docs/validation.md, and en-list is expected to exit 1 because of the recorded postal-code wrong fill:
+Every fixture in `dev/forms.mjs` runs the same way, including the `-nonl` copies without a final newline and the `japan` set on `jp-application-form.html` / `en-signup-form.html`. Take the minimum from the Node result in docs/validation.md; en-list is expected to exit 1 because of the postal-code wrong fill recorded there:
 
 ```sh
 dev/e2e/run-fixture.zsh 9343 $EXT contact-ja-nonl http://127.0.0.1:8765/contact-form-ja.html "$WORK/out" 3
